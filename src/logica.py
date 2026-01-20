@@ -1,8 +1,125 @@
 import math
 
+
+class Vector:
+
+#Classe para operações de vetor/ponto (x, y, z)
+#staticmethod permite chamar o metodo sem precisar incializar a classe
+    @staticmethod
+    def norm(V):
+        # Calcula a soma dos quadrados dos componentes
+        soma_quadrados = 0.0
+        for componente in V:
+            soma_quadrados += componente ** 2
+        
+        # Retorna a raiz quadrada da soma
+        return math.sqrt(soma_quadrados)
+
+
+    @staticmethod
+    def mul(mat, ponto):
+        # função pra aplicar transformação em um vetor/ponto
+        # ponto deve ser uma tupla ou lista (x, y, z, w)
+        # O resultado é um novo ponto transformado
+            
+        res = [0.0, 0.0, 0.0, 0.0]
+            
+        for i in range(4): # Para cada linha da matriz
+            soma = 0.0
+            for j in range(4): # Multiplica pela coluna do vetor
+                soma += mat[i][j] * ponto[j]
+            res[i] = soma
+                
+        return res    
+    
+    @staticmethod
+    def cross_product(A, B):
+        #função para calcular produto vetorial
+        # recebe dois vetores (x, y, z)    
+        
+        Ux = A[0]
+        Uy = A[1]
+        Uz = A[2]
+
+        
+        Vx = B[0]
+        Vy = B[1]
+        Vz = B[2]
+
+        # Produto Vetorial (Cross Product): N = U x V
+        Nx = (Uy * Vz) - (Uz * Vy)
+        Ny = (Uz * Vx) - (Ux * Vz)
+        Nz = (Ux * Vy) - (Uy * Vx)
+
+        # Normalização
+        modulo = math.sqrt(Nx**2 + Ny**2 + Nz**2)
+
+        if modulo == 0: return (0, 0, 0) # Evita divisão por zero
+        return (Nx/modulo, Ny/modulo, Nz/modulo)
+    
+    @staticmethod
+    def dot_product(A,B):
+    # Calcula o produto escalar de dois vetores (x, y, z)
+        return (A[0] * B[0]) + (A[1] * B[1]) + (A[2] * B[2])
+
+
+
+class Pipeline:
+    # Adaptado do artigo de Alvy-Ray Smith
+    # todas as matrizes são transpostas, para trabalhar na regra da mão direita
+
+    @staticmethod
+    def get_matrix_A(Viewpoint):
+
+        return Mat4.trans(Viewpoint[0], Viewpoint[1], Viewpoint[2])
+    
+    @staticmethod
+    def get_matrix_B(camera):
+        
+        (u, v, n) = camera.get_view_spec()
+
+        return[
+            [u[0], u[1], u[2], 0],
+            [v[0], v[1], v[2], 0],
+            [n[0], n[1], n[0], 0],
+            [0,    0,    0,    1]
+        ]
+    
+    @staticmethod 
+    def get_matrix_C(Cu, Cv, d):
+
+        return[
+            [1, 0, -Cu/d,  0],
+            [0, 1, -Cv/d,  0],
+            [0, 0,  1,     0],
+            [0, 0,  0,     1]
+        ]
+
+    @staticmethod
+    def get_matrix_D(Su, Sv, d, f):
+
+        return [
+            [d/(Su*f), 0, 0,   0]
+            [0, d/(Sv*f), 0,   0]
+            [0, 0,        1/f, 0]
+            [0, 0,        0,   1]
+        ]
+
+    @staticmethod
+            
+
+
+
+    def todo():
+        print("todo")
+
+
+
 class Mat4:
 
-    def identity(self):
+# Classe para operações de matriz (4x4)
+    @staticmethod
+    def identity():
         return [
 
             [1, 0, 0, 0],
@@ -12,17 +129,19 @@ class Mat4:
 
         ]
 
-    def null(self):
+    @staticmethod
+    def null():
         return [
             
-            [0, 0, 0, 0],
-            [0, 0, 0, 0],
-            [0, 0, 0, 0],
-            [0, 0, 0, 0]
+            [0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0]
 
         ]
     
-    def trans(self, dx, dy, dz):
+    @staticmethod
+    def trans(dx, dy, dz):
         return [
             [1, 0, 0, dx],
             [0, 1, 0, dy],
@@ -30,7 +149,8 @@ class Mat4:
             [0, 0, 0, 1 ]
         ]
     
-    def scale(self, sx, sy, sz):
+    @staticmethod
+    def scale(sx, sy, sz):
         return [
             [sx, 0, 0, 0],
             [0, sy, 0, 0],
@@ -38,7 +158,8 @@ class Mat4:
             [0, 0, 0,  1]
         ]
     
-    def rotate_z(self, tetha):
+    @staticmethod
+    def rotate_z(tetha):
         #a biblioteca aceita radianos
         #o usuario envia o parâmetro em graus, e a conversão ocorre aqui
         tetha_rad = math.radians(tetha)
@@ -53,7 +174,8 @@ class Mat4:
             [0,    0,   0, 1]
         ]
     
-    def rotate_y(self, tetha):
+    @staticmethod
+    def rotate_y(tetha):
 
         tetha_rad = math.radians(tetha)
         cos = math.cos(tetha_rad)
@@ -66,7 +188,8 @@ class Mat4:
             [0,    0, 0,    1]
         ]
     
-    def rotate_x(self, tetha):
+    @staticmethod
+    def rotate_x(tetha):
 
         tetha_rad = math.radians(tetha)
         cos = math.cos(tetha_rad)
@@ -79,37 +202,18 @@ class Mat4:
             [0, 0,   0,      1]
         ]
     
-    def mul(self, mat1, mat2):
+    @staticmethod
+    def mul(mat1, mat2):
 
-        res = [
-            [0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0]
-        ]
+        res = Mat4.null()
 
-        # 2. Algoritmo de Multiplicação (Linha x Coluna)
-        # C[i][j] = Somatório(A[i][k] * B[k][j])
-        for i in range(4):           # Percorre as linhas de mat1
-            for j in range(4):       # Percorre as colunas de mat2
-                for k in range(4):   # Percorre o elemento comum
+        for i in range(4):            
+            for j in range(4):       
+                for k in range(4):   
                     res[i][j] += mat1[i][k] * mat2[k][j]
 
         return res
-    
-    def mul_point(self, mat, ponto):
-        # ponto deve ser uma tupla ou lista (x, y, z, w)
-        # O resultado é um novo ponto transformado
-        
-        res = [0.0, 0.0, 0.0, 0.0]
-        
-        for i in range(4): # Para cada linha da matriz
-            soma = 0.0
-            for j in range(4): # Multiplica pela coluna do vetor
-                soma += mat[i][j] * ponto[j]
-            res[i] = soma
-            
-        return res    
+
 
 
 
@@ -121,38 +225,52 @@ class Face:
         #face do mundo
         self.lista_vertices = (v0, v1, v2, v3) 
 
-        #face qua vai sofrer transforamções
-        self.model_faces = [v0, v1, v1, v2, v3]
+        #face que vai sofrer transforamções
+        self.model_face = [v0, v1, v1, v2, v3]
 
-        self.normal = self.calcular_normal(self)         
+        #calculamos vetores pra calcular a normal
 
-    def calcular_normal(self):
-        A, B, C = self.vertices[0], self.vertices[1], self.vertices[3]
-        
-        # Vetor U = B - A
-        Ux = B[0] - A[0]
-        Uy = B[1] - A[1]
-        Uz = B[2] - A[2]
-        
-        # Vetor V = C - A
-        Vx = C[0] - A[0]
-        Vy = C[1] - A[1]
-        Vz = C[2] - A[2]
-        
-        # Produto Vetorial (Cross Product): N = U x V
-        Nx = (Uy * Vz) - (Uz * Vy)
-        Ny = (Uz * Vx) - (Ux * Vz)
-        Nz = (Ux * Vy) - (Uy * Vx)
-        
-        # Normalização
-        modulo = math.sqrt(Nx**2 + Ny**2 + Nz**2)
-        
-        if modulo == 0: return (0, 0, 0) # Evita divisão por zero
-        return (Nx/modulo, Ny/modulo, Nz/modulo)
+        A = self.lista_vertices[0]
+        B = self.lista_vertices[1]
+        C = self.lista_vertices[3]
+
+        vetor_A = (B[0] - A[0], B[1] - A[1], B[2] - A[2])
+        vetor_B = (C[0] - A[0], C[1] - A[1],  C[2] - A[2])
+
+        #calcular normal (já normalizado)
+        self.normal = Vector.cross_product(vetor_A, vetor_B)         
+
+
 
 
         
 class Cubo:
+
+
+    def calcular_centroide(self):
+            # Inicializa acumuladores para X, Y, Z
+            soma_x = 0.0
+            soma_y = 0.0
+            soma_z = 0.0
+            
+            num_vertices = len(self.lista_vertices)
+            
+            # Percorre todos os vértices do cubo
+            for v in self.lista_vertices:
+                soma_x += v[0] # Soma X
+                soma_y += v[1] # Soma Y
+                soma_z += v[2] # Soma Z
+                # O v[3] é o W, nós ignoramos ele propositalmente
+                
+            # Calcula a média aritmética
+            cx = soma_x / num_vertices
+            cy = soma_y / num_vertices
+            cz = soma_z / num_vertices
+            
+            # Atualiza a posição (translação) para o centróide calculado
+            self.trans = [cx, cy, cz]        
+
+
     # So precisamos de um vértice e a medida do lado pra definir um cubo
     # v0 poderia ser o local do clique do mouse
     def __init__(self, v0, lado, ka, kd, ks): 
@@ -203,17 +321,65 @@ class Cubo:
             [v0[1],v1[1],v2[1],v3[1],v4[1],v5[1],v6[1],v7[1]],
             [v0[2],v1[2],v2[2],v3[2],v4[2],v5[2],v6[2],v7[2]],
             [1,    1,    1,    1,    1,    1,    1,    1    ]
-        ]        
+        ] 
+        
+               
 
         self.rotacao = [0.0, 0.0, 0.0] # Rotação atual
-        self.escala = 1.0 # Rotação atual
-        self.trans = [0.0, 0.0, 0.0] #Posição atual
+        self.escala = 1.0 # escala atual
+        self.centroide = self.calcular_centroide()
+
+        centroide = [None, None, None]
+        for i in self.model_matrix:
+            num = len(self.model_matrix[i])
+            for j in self.model_matrix:
+                total += self.model_matrix[i][j]
+            centroide[i] = total/num
+
+        self.trans = [centroide[0], centroide[1], centroide[2]] #Posição atual (referência no centróide)
     
-    def get_model_matrix(self):
-        matriz = Mat4.identity()
+
         
 
 class Camera:
+
+    def get_view_spec(self):
+        return (self.u, self.v, self.v)
+
+    def cal_view_spec(self):
+        #função para calcular o view spec (página 4 do artigo do Alvy-Ray)
+        n = [None, None, None]
+        norm_n = Vector.norm(self.n)
+
+        for i in range(len(self.n)):
+           n[i] = self.vpn[i]/norm_n 
+        
+  
+        dot = Vector.dot_product(self.vup, self.n) 
+        
+        vx = self.vup[0] - (dot * n[0])
+        vy = self.vup[1] - (dot * n[1])
+        vz = self.vup[2] - (dot * n[2])
+        
+        v_temp = [vx, vy, vz]
+
+        #normalizar o vetor v resultante
+        # Calcula a magnitude uma vez baseada em x, y e z
+        v = [None, None, None]
+        norm_v = Vector.norm(v_temp)
+
+        for i in range(len(self.v)):
+           v[i] = v_temp[i]/norm_v 
+    
+       
+
+        #calcular vetor u (invertido pra usar a regra da mão direita)
+        u = Vector.cross_product(self.v, self.n)
+
+        return u, v, n
+    
+
+
     def __init__(self, vrp, vpn, vup):
         self.vrp = [vrp[0], vrp[1], vrp[2]]
         self.vpn = [vpn[0], vpn[1], vpn[2]]
@@ -234,9 +400,9 @@ class Camera:
         self.near = 1.0    # Distância mínima (Z min)
         self.far = 100.0   # Distância máxima (Z max)
 
-    def get_matrix(self):
-        # Todo: Retornar M_View * M_Projection
-        pass
+        self.u, self.v, self.n = self.cal_view_spec()
+
+
 
 class Luz:
     # Constantes para legibilidade
@@ -303,6 +469,7 @@ class Cena:
     def renderizar(self):
         # Aqui entrará o pipeline principal:
         # 1. Limpar Buffers
+        self.limpar_buffers()
         # 2. Calcular matrizes
         # 3. Para cada objeto -> Rasterizar
         pass

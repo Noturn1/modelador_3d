@@ -74,14 +74,13 @@ class Pipeline:
         return Mat4.trans(Viewpoint[0], Viewpoint[1], Viewpoint[2])
     
     @staticmethod
-    def get_matrix_B(camera):
-        
-        (u, v, n) = camera.get_view_spec()
+    #recebe vetores (x, y, z) como parâmetro
+    def get_matrix_B(u, v, n):
 
         return[
-            [u[0], u[1], u[2], 0],
-            [v[0], v[1], v[2], 0],
-            [n[0], n[1], n[0], 0],
+            [u[0], v[0], n[0], 0],
+            [u[1], v[1], n[1], 0],
+            [u[2], v[2], n[2], 0],
             [0,    0,    0,    1]
         ]
     
@@ -99,19 +98,61 @@ class Pipeline:
     def get_matrix_D(Su, Sv, d, f):
 
         return [
-            [d/(Su*f), 0, 0,   0]
-            [0, d/(Sv*f), 0,   0]
-            [0, 0,        1/f, 0]
-            [0, 0,        0,   1]
+            [d/(Su*f), 0,        0,   0]
+            [0,        d/(Sv*f), 0,   0]
+            [0,        0,        1/f, 0]
+            [0,        0,        0,   1]
         ]
 
     @staticmethod
-            
+    def get_matrix_P(z_min):
 
+        return [
+            [1, 0, 0,           0                 ],
+            [0, 1, 0,           0                 ],
+            [0, 0, 1/(1-z_min), (-z_min)/(1-z_min)],
+            [0, 0, 1,           0                 ]
+        ]        
+    
+    @staticmethod
+    def get_matrix_J():
 
+        return[
+            [1, 0, 0,  0],
+            [0, 1, 0,  0],
+            [0, 0, -1, 0],
+            [0, 0, 0,  1]     
+        ]
+    
+    @staticmethod
+    def get_matrix_K():
 
-    def todo():
-        print("todo")
+        return[
+            [0.5, 0,   0, 0.5],
+            [0,   0.5, 0, 0.5],
+            [0,   0,   1, 0  ],
+            [0,   0,   0, 1  ]
+        ]
+
+    @staticmethod
+    def get_matrix_L(x_max, x_min, y_max, y_min, z_max, z_min):
+
+        return[
+            [x_max - x_min, 0,             0,              x_min],
+            [0,             y_max - y_min, 0,              y_min],
+            [0,             0,             z_max - z_min,  z_min],
+            [0,             0,              0,             1    ]
+        ]
+    
+    @staticmethod
+    def get_matrix_M():
+
+        return[
+            [1,   0,     0,     0.5],
+            [0,   1,     0,     0.5],
+            [0,   0,     1,     0.5],
+            [0,   0,     0,     1  ]
+        ]
 
 
 
@@ -239,9 +280,6 @@ class Face:
 
         #calcular normal (já normalizado)
         self.normal = Vector.cross_product(vetor_A, vetor_B)         
-
-
-
 
         
 class Cubo:

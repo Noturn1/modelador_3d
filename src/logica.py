@@ -71,6 +71,14 @@ class Pipeline:
     @staticmethod
     def get_matrix_A(Viewpoint):
 
+        return[
+            [1, 0, 0, Viewpoint[0]],
+            [0, 1, 0, Viewpoint[1]],
+            [0, 0, 1, Viewpoint[2]],
+            [0, 0, 0, 1           ]
+            ]
+        
+
         return Mat4.trans(Viewpoint[0], Viewpoint[1], Viewpoint[2])
     
     @staticmethod
@@ -98,9 +106,9 @@ class Pipeline:
     def get_matrix_D(Su, Sv, d, f):
 
         return [
-            [d/(Su*f), 0,        0,   0]
-            [0,        d/(Sv*f), 0,   0]
-            [0,        0,        1/f, 0]
+            [d/(Su*f), 0,        0,   0],
+            [0,        d/(Sv*f), 0,   0],
+            [0,        0,        1/f, 0],
             [0,        0,        0,   1]
         ]
 
@@ -159,6 +167,12 @@ class Pipeline:
 class Mat4:
 
 # Classe para operações de matriz (4x4)
+    @staticmethod
+    def print_matrix(M):
+        for line in M:
+            print(line)
+
+
     @staticmethod
     def identity():
         return [
@@ -245,7 +259,7 @@ class Mat4:
     
     @staticmethod
     def mul(mat1, mat2):
-
+        #essa função é melhor aplicada para compor matrizes
         res = Mat4.null()
 
         for i in range(4):            
@@ -261,28 +275,50 @@ class Mat4:
 class Face:
     # define a face do objeto, vertices são lista [x,y,z]
 
-    def __init__(self, v0, v1, v2, v3):
+    def __init__(self, i0, i1, i2, i3):
 
         #face do mundo
-        self.lista_vertices = (v0, v1, v2, v3) 
-
-        #face que vai sofrer transforamções
-        self.model_face = [v0, v1, v1, v2, v3]
-
-        #calculamos vetores pra calcular a normal
-
-        A = self.lista_vertices[0]
-        B = self.lista_vertices[1]
-        C = self.lista_vertices[3]
-
-        vetor_A = (B[0] - A[0], B[1] - A[1], B[2] - A[2])
-        vetor_B = (C[0] - A[0], C[1] - A[1],  C[2] - A[2])
+        self.indices = (i0, i1, i2, i3)
 
         #calcular normal (já normalizado)
-        self.normal = Vector.cross_product(vetor_A, vetor_B)         
+        self.normal = None        
 
         
 class Cubo:
+
+
+    def print_vertices(self):
+        i = 0
+        for v in self.vertices_modelo_transformados:
+            print(f"v{i}: {v}")
+            i += 1
+
+
+    def aplicar_transformacao(self, mat):
+        novos_vertices = []
+
+        for v in self.vertices_modelo_transformados:
+            vt = Vector.mul(mat, v)
+            novos_vertices.append(list(vt))
+
+        self.vertices_modelo_transformados = novos_vertices
+        self.atualizar_normais()
+        self.calcular_centroide()
+
+
+    def atualizar_normais(self):
+        for face in self.lista_faces:
+            i0, i1, i2, i3 = face.indices
+
+            A = self.vertices_modelo_transformados[i0]
+            B = self.vertices_modelo_transformados[i1]
+            C = self.vertices_modelo_transformados[i3]
+
+            AB = (B[0]-A[0], B[1]-A[1], B[2]-A[2])
+            AC = (C[0]-A[0], C[1]-A[1], C[2]-A[2])
+
+            face.normal = Vector.cross_product(AB, AC)
+
 
 
     def calcular_centroide(self):
@@ -291,10 +327,10 @@ class Cubo:
             soma_y = 0.0
             soma_z = 0.0
             
-            num_vertices = len(self.lista_vertices)
+            num_vertices = len(self.vertices_modelo_transformados)
             
             # Percorre todos os vértices do cubo
-            for v in self.lista_vertices:
+            for v in self.vertices_modelo_transformados:
                 soma_x += v[0] # Soma X
                 soma_y += v[1] # Soma Y
                 soma_z += v[2] # Soma Z
@@ -305,8 +341,8 @@ class Cubo:
             cy = soma_y / num_vertices
             cz = soma_z / num_vertices
             
-            # Atualiza a posição (translação) para o centróide calculado
-            self.trans = [cx, cy, cz]        
+            return cx, cy, cz
+             
 
 
     # So precisamos de um vértice e a medida do lado pra definir um cubo
@@ -332,17 +368,17 @@ class Cubo:
         v6 = (x,     y + l, z + l, 1) # Frente-Esq-Cima
         v7 = (x + l, y + l, z + l, 1) # Frente-Dir-Cima
 
-      
         
-        self.lista_vertices = (v0, v1, v2, v3, v4, v5, v6, v7)
+        self.vertices_modelo = [v0, v1, v2, v3, v4, v5, v6, v7]
+        self.vertices_modelo_transformados = list(self.vertices_modelo)
 
         # Faces em sentido anti-horário
-        face0 = Face(v4, v5, v7, v6) # Frente
-        face1 = Face(v1, v0, v2, v3) # Traś
-        face2 = Face(v0, v4, v6, v2) # Direita
-        face3 = Face(v5, v1, v3, v7) # Esquerda
-        face4 = Face(v2, v6, v7, v3) # Topo
-        face5 = Face(v4, v0, v1, v5) # Base
+        face0 = Face(4, 5, 7, 6) # Frente
+        face1 = Face(1, 0, 2, 3) # Traś
+        face2 = Face(0, 4, 6, 2) # Direita
+        face3 = Face(5, 1, 3, 7) # Esquerda
+        face4 = Face(2, 6, 7, 3) # Topo
+        face5 = Face(4, 0, 1, 5) # Base
 
 
 
@@ -351,7 +387,7 @@ class Cubo:
         #faces que vão sofrer alterações
         self.model_faces = [face0, face1, face2, face3, face4, face5]
         # Dados do mundo
-
+   
         #matrix que vai sofrer transformações e ser rasterizada
 
         self.model_matrix = [ 
@@ -361,20 +397,14 @@ class Cubo:
             [1,    1,    1,    1,    1,    1,    1,    1    ]
         ] 
         
-               
+                
 
         self.rotacao = [0.0, 0.0, 0.0] # Rotação atual
         self.escala = 1.0 # escala atual
+        self.atualizar_normais()
         self.centroide = self.calcular_centroide()
 
-        centroide = [None, None, None]
-        for i in self.model_matrix:
-            num = len(self.model_matrix[i])
-            for j in self.model_matrix:
-                total += self.model_matrix[i][j]
-            centroide[i] = total/num
-
-        self.trans = [centroide[0], centroide[1], centroide[2]] #Posição atual (referência no centróide)
+        self.trans = [self.centroide[0], self.centroide[1], self.centroide[2]] #Posição atual (referência no centróide)
     
 
         

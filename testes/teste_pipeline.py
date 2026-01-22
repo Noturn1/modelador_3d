@@ -61,7 +61,7 @@ K = Pipeline.get_matrix_K()
 
 L = Pipeline.get_matrix_L(
     camera.viewport["x_min"],
-    camera.viewport["x_min"],   # (erro seu: x_min duplicado, mantido p/ compat.)
+    camera.viewport["x_max"],   
     camera.viewport["y_max"],
     camera.viewport["y_min"],
     camera.z_max,

@@ -427,16 +427,10 @@ class Camera:
 
     def cal_view_spec(self):
         #função para calcular o view spec (página 4 do artigo do Alvy-Ray)
-        n = [None, None, None]
-        norm_n = Vector.norm(self.vpn)
-
-        for i in range(len(self.vpn)):
-           n[i] = self.vpn[i]/norm_n 
         
-        up = [None, None, None]
-        norm_up = Vector.norm(self.vup)
-        for i in range(len(self.vup)):
-           up[i] = self.vup[i]/norm_up 
+        n = Vector.normalize(self.vpn)
+
+        up = Vector.normalize(self.vup)
 
         dot = Vector.dot_product(up, n) 
         
@@ -445,16 +439,7 @@ class Camera:
         vz = up[2] - (dot * n[2])
         
         v_temp = [vx, vy, vz]
-
-        #normalizar o vetor v resultante
-        # Calcula a magnitude uma vez baseada em x, y e z
-        v = [None, None, None]
-        norm_v = Vector.norm(v_temp)
-
-        for i in range(len(v_temp)):
-           v[i] = v_temp[i]/norm_v 
-    
-       
+        v = Vector.normalize(v_temp)
 
         #calcular vetor u (invertido pra usar a regra da mão direita)
         u = Vector.cross_product(v, n)

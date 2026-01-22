@@ -445,7 +445,7 @@ class Camera:
 
 
     def __init__(self, vrp, P, Y, u_max, u_min, v_max, v_min, DP, near, far,
-                 x_min, x_max, y_min, y_max, z_min, z_max, Vres, Hres):
+                 x_min, x_max, y_min, y_max, Vres, Hres):
         
         self.vrp = [vrp[0], vrp[1], vrp[2]]
         self.N = Vector.create_vector(P ,vrp)
@@ -462,8 +462,8 @@ class Camera:
         self.viewport = {"x_min" : x_min, "x_max" : x_max,
                          "y_min" : y_min, "y_max" : y_max}      
 
-        self.z_min = z_min
-        self.z_max = z_max
+        self.z_min = near/far
+        self.z_max = 1
         self.Vres = Vres
         self.Hres = Hres
     

@@ -20,24 +20,22 @@ cubo.print_vertices()
 # =========================================================
 
 camera = Camera(
-    vrp=(0, 0, 50),     # View Reference Point (posição da câmera)
-    P=(0, 0, 0),        # Ponto observado
+    vrp=(30, 40, 100),     # View Reference Point (posição da câmera)
+    P=(1, 2, 1),        # Ponto observado
     Y=(0, 1, 0),        # View-Up
-    u_max=1,
-    u_min=-1,
-    v_max=1,
-    v_min=-1,
-    DP=1,               # distância focal
-    near=1,
-    far=200,
-    x_min=0,
-    x_max=800,
-    y_min=0,
-    y_max=600,
-    z_min=0,
-    z_max=1,
-    Vres=600,
-    Hres=800
+    u_max=1000,
+    u_min=-100,
+    v_max=900,
+    v_min=300,
+    DP=50,               # distância focal
+    near=20,
+    far=120,
+    x_min=-10,
+    x_max=10,
+    y_min=-8,
+    y_max=8,
+    Vres=900,
+    Hres=600
 )
 
 u, v, n = camera.get_view_spec()

@@ -62,11 +62,7 @@ class Vector:
         Ny = (Uz * Vx) - (Ux * Vz)
         Nz = (Ux * Vy) - (Uy * Vx)
 
-        # Normalização
-        modulo = math.sqrt(Nx**2 + Ny**2 + Nz**2)
-
-        if modulo == 0: return (0, 0, 0) # Evita divisão por zero
-        return (Nx/modulo, Ny/modulo, Nz/modulo)
+        return (Nx, Ny, Nz)
     
     @staticmethod
     def dot_product(A,B):
@@ -428,9 +424,9 @@ class Camera:
     def cal_view_spec(self):
         #função para calcular o view spec (página 4 do artigo do Alvy-Ray)
         
-        n = Vector.normalize(self.vpn)
+        n = Vector.normalize(self.N)
 
-        up = Vector.normalize(self.vup)
+        up = Vector.normalize(self.Y)
 
         dot = Vector.dot_product(up, n) 
         
@@ -442,7 +438,7 @@ class Camera:
         v = Vector.normalize(v_temp)
 
         #calcular vetor u (invertido pra usar a regra da mão direita)
-        u = Vector.cross_product(v, n)
+        u = Vector.normalize(Vector.cross_product(v, n))
 
         return u, v, n
     
@@ -452,8 +448,10 @@ class Camera:
                  x_min, x_max, y_min, y_max, z_min, z_max, Vres, Hres):
         
         self.vrp = [vrp[0], vrp[1], vrp[2]]
-        self.n = Vector.create_vector(vrp, P)
+        self.N = Vector.create_vector(P ,vrp)
         self.Y = [Y[0], Y[1], Y[2]]
+
+        self.u, self.v, self.n = self.cal_view_spec()
      
         # Distância focal (d) 
         self.DP = DP
@@ -461,22 +459,30 @@ class Camera:
         # Janela 
         # Define a abertura da lente (Zoom)
         # u_min, u_max, v_min, v_max
-        self.viewport = {"x_min" : x_min, "x_min" : x_max,
+        self.viewport = {"x_min" : x_min, "x_max" : x_max,
                          "y_min" : y_min, "y_max" : y_max}      
 
         self.z_min = z_min
         self.z_max = z_max
         self.Vres = Vres
         self.Hres = Hres
+    
 
         self.window = {"u_min" : u_min, "u_max": u_max,
                        "v_min" : v_min, "v_max" : v_max}
         
+        self.Cu = (self.window["u_max"] + self.window["u_min"]) / 2
+        self.Cv = (self.window["v_max"] + self.window["v_min"]) / 2
+        self.Su = (self.window["u_max"] - self.window["u_min"])
+        self.Sv = (self.window["v_max"] - self.window["v_min"])
+        self.AR = self.Su/self.Sv
+        self.PAR = self.AR*(self.Vres/self.Hres)
+
         # Planos de Recorte (Clipping) para definir o Volume de Visão
         self.near = near    # Distância mínima (Z min)
         self.far = far   # Distância máxima (Z max)
 
-        self.u, self.v, self.n = self.cal_view_spec()
+
 
 
 

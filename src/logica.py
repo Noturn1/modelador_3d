@@ -5,16 +5,27 @@ class Vector:
 
 #Classe para operações de vetor/ponto (x, y, z)
 #staticmethod permite chamar o metodo sem precisar incializar a classe
-    @staticmethod
-    def norm(V):
-        # Calcula a soma dos quadrados dos componentes
-        soma_quadrados = 0.0
-        for componente in V:
-            soma_quadrados += componente ** 2
+    @staticmethod   
+    def create_vector(A, B):
+        Vx = B[0] - A[0]
+        Vy = B[1] - A[1]
+        Vz = B[2] - A[2]
         
-        # Retorna a raiz quadrada da soma
-        return math.sqrt(soma_quadrados)
+        return [Vx, Vy, Vz, 0]
 
+    @staticmethod
+    def normalize(V):
+        mag = math.sqrt(V[0]**2 + V[1]**2 + V[2]**2)
+        
+        if mag == 0:
+            return [0, 0, 0, V[3]]
+        
+        return [
+            V[0] / mag,
+            V[1] / mag,
+            V[2] / mag,
+            V[3]
+        ]
 
     @staticmethod
     def mul(mat, ponto):

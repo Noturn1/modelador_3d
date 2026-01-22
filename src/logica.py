@@ -11,20 +11,20 @@ class Vector:
         Vy = B[1] - A[1]
         Vz = B[2] - A[2]
         
-        return [Vx, Vy, Vz, 0]
+        return [Vx, Vy, Vz]
 
     @staticmethod
     def normalize(V):
         mag = math.sqrt(V[0]**2 + V[1]**2 + V[2]**2)
         
         if mag == 0:
-            return [0, 0, 0, V[3]]
+            return [0, 0, 0]
         
         return [
             V[0] / mag,
             V[1] / mag,
             V[2] / mag,
-            V[3]
+            
         ]
 
     @staticmethod
@@ -448,19 +448,27 @@ class Camera:
     
 
 
-    def __init__(self, vrp, vpn, vup, prp, near, far, d, u_min, u_max, v_min, v_max):
-        self.vrp = [vrp[0], vrp[1], vrp[2]]
-        self.vpn = [vpn[0], vpn[1], vpn[2]]
-        self.vup = [vup[0], vup[1], vpn[2]]
-
-        self.prp = [prp[0], prp[1], prp[2]] 
+    def __init__(self, vrp, P, Y, u_max, u_min, v_max, v_min, DP, near, far,
+                 x_min, x_max, y_min, y_max, z_min, z_max, Vres, Hres):
         
+        self.vrp = [vrp[0], vrp[1], vrp[2]]
+        self.n = Vector.create_vector(vrp, P)
+        self.Y = [Y[0], Y[1], Y[2]]
+     
         # Distância focal (d) 
-        self.distancia_focal = d
+        self.DP = DP
         
         # Janela 
         # Define a abertura da lente (Zoom)
         # u_min, u_max, v_min, v_max
+        self.viewport = {"x_min" : x_min, "x_min" : x_max,
+                         "y_min" : y_min, "y_max" : y_max}      
+
+        self.z_min = z_min
+        self.z_max = z_max
+        self.Vres = Vres
+        self.Hres = Hres
+
         self.window = {"u_min" : u_min, "u_max": u_max,
                        "v_min" : v_min, "v_max" : v_max}
         
@@ -490,7 +498,7 @@ class Luz:
         self.i_spec = [intensidade_rgb_s[0], intensidade_rgb_s[1], intensidade_rgb_s[2]]  # Intensidade Especular (Geralmente igual à difusa)
 
 class Cena:
-    def __init__(self, width, height):
+    def __init__(self, height, width):
         # --- Gerenciamento de Objetos ---
         self.objetos = []     # Lista de instâncias de Cubo
         self.luzes = []       # Lista de instâncias de Luz
@@ -498,14 +506,6 @@ class Cena:
         
         # Luz Ambiente Global (Ilumina todas as faces minimamente)
         self.ia = [0.1, 0.1, 0.1] # Cinza escuro fraco
-
-        # --- Viewport (Dimensões da Tela/Janela do SO) ---
-        self.viewport = {
-            'x_min': 0, 'y_min': 0,
-            'x_max': width, 'y_max': height
-        }
-        self.width = width
-        self.height = height
 
         # --- Buffers de Rasterização (Alocação de Memória) ---
         # ColorBuffer: Matriz width x height guardando tuplas (R, G, B)

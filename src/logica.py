@@ -79,9 +79,9 @@ class Pipeline:
     def get_matrix_A(Viewpoint):
 
         return[
-            [1, 0, 0, Viewpoint[0]],
-            [0, 1, 0, Viewpoint[1]],
-            [0, 0, 1, Viewpoint[2]],
+            [1, 0, 0, -Viewpoint[0]],
+            [0, 1, 0, -Viewpoint[1]],
+            [0, 0, 1, -Viewpoint[2]],
             [0, 0, 0, 1           ]
             ]
         
@@ -93,9 +93,9 @@ class Pipeline:
     def get_matrix_B(u, v, n):
 
         return[
-            [u[0], v[0], n[0], 0],
-            [u[1], v[1], n[1], 0],
-            [u[2], v[2], n[2], 0],
+            [u[0], u[1], u[2], 0],
+            [v[0], v[1], v[2], 0],
+            [n[0], n[1], n[2], 0],
             [0,    0,    0,    1]
         ]
     
@@ -120,12 +120,12 @@ class Pipeline:
         ]
 
     @staticmethod
-    def get_matrix_P(z_min):
+    def get_matrix_P(far, near):
 
         return [
             [1, 0, 0,           0                 ],
             [0, 1, 0,           0                 ],
-            [0, 0, 1/(1-z_min), (-z_min)/(1-z_min)],
+            [0, 0, far/(far - near), (-near)/(far-near)],
             [0, 0, 1,           0                 ]
         ]        
     
@@ -134,8 +134,8 @@ class Pipeline:
 
         return[
             [1, 0, 0,  0],
-            [0, 1, 0,  0],
-            [0, 0, -1, 0],
+            [0, -1, 0,  0],
+            [0, 0, 1, 0],
             [0, 0, 0,  1]     
         ]
     
@@ -448,7 +448,7 @@ class Camera:
                  x_min, x_max, y_min, y_max, Vres, Hres):
         
         self.vrp = [vrp[0], vrp[1], vrp[2]]
-        self.N = Vector.create_vector(P ,vrp)
+        self.N = Vector.create_vector(vrp, P)
         self.Y = [Y[0], Y[1], Y[2]]
 
         self.u, self.v, self.n = self.cal_view_spec()

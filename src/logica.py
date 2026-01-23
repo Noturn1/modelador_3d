@@ -84,9 +84,6 @@ class Pipeline:
             [0, 0, 1, -Viewpoint[2]],
             [0, 0, 0, 1           ]
             ]
-        
-
-        return Mat4.trans(Viewpoint[0], Viewpoint[1], Viewpoint[2])
     
     @staticmethod
     #recebe vetores (x, y, z) como parâmetro
@@ -396,16 +393,7 @@ class Cubo:
         # Dados do mundo
    
         #matrix que vai sofrer transformações e ser rasterizada
-
-        self.model_matrix = [ 
-            [v0[0],v1[0],v2[0],v3[0],v4[0],v5[0],v6[0],v7[0]],
-            [v0[1],v1[1],v2[1],v3[1],v4[1],v5[1],v6[1],v7[1]],
-            [v0[2],v1[2],v2[2],v3[2],v4[2],v5[2],v6[2],v7[2]],
-            [1,    1,    1,    1,    1,    1,    1,    1    ]
-        ] 
         
-                
-
         self.rotacao = [0.0, 0.0, 0.0] # Rotação atual
         self.escala = 1.0 # escala atual
         self.atualizar_normais()
@@ -413,6 +401,16 @@ class Cubo:
 
         self.trans = [self.centroide[0], self.centroide[1], self.centroide[2]] #Posição atual (referência no centróide)
     
+class RenderPoligon:
+    #classe para definir o polígono renderizavel, guardando vertices do cubo após recorte
+    #evitar mudar a classe cubo, pra não afetar o trabalho dos outros
+    #representa uma face, que é a unidade basica a ser renderizada
+    def __init__(self, vertices_2d, ka, kd, ks, normal):
+        self.vertices_2d = vertices_2d
+        self.ka = ka
+        self.kd = kd
+        self.ks = ks
+        self.normal = normal
 
         
 

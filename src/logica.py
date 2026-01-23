@@ -538,6 +538,11 @@ class Cena:
                 self.color_buffer[x][y] =[0, 0, 0] # Cor de fundo
                 self.depth_buffer[x][y] = float('inf')
 
+    def recorteWA(vertices_face_ndc):
+        #algoritmo de recorte Weiler-Atherton
+        # vertices_face_ndc é uma lista 
+        print()           
+
     def renderizar(self):
         # Aqui entrará o pipeline principal:
         # 1. Limpar Buffers

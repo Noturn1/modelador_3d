@@ -6,7 +6,7 @@ from src.logica import Cubo, Camera, Pipeline, Mat4, Vector
 
 cubo = Cubo(
     v0=(0, 0, 0),
-    lado=100,
+    lado=10,
     ka=(1, 1, 1),
     kd=(1, 1, 1),
     ks=(1, 1, 1, 10)
@@ -20,16 +20,16 @@ cubo.print_vertices()
 # =========================================================
 
 camera = Camera(
-    vrp=(30, 40, 250),     # View Reference Point (posição da câmera)
-    P=(1, 2, 1),        # Ponto observado
+    vrp=(15, 0, 15),     # View Reference Point (posição da câmera)
+    P=(cubo.centroide),        # Ponto observado
     Y=(0, 1, 0),        # View-Up
     u_max=400,
     u_min=-400,
     v_max=300,
     v_min=-300,
-    DP=200,               # distância focal
+    DP=20,               # distância focal
     near=10,
-    far=400,
+    far=100,
     x_min=0,
     x_max=800,
     y_min=0,
@@ -128,7 +128,7 @@ for i, v_model in enumerate(cubo.vertices_modelo_transformados):
     v_clip = Vector.mul(M_pipeline, v_model)
     print("CLIP       :", v_clip)
 
-    if v_clip[3] > 0:
+    if v_clip[3] > (camera.near/camera.far):
         v_ndc = [
             v_clip[0] / v_clip[3],
             v_clip[1] / v_clip[3],

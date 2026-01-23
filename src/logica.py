@@ -620,7 +620,7 @@ class Cena:
         return None
 
 
-    def recorteWA(self, vertices_face_ndc):
+    def recorteWA(self, vertices_face_tela):
         # passo 1: definir a janela de recorte
         xmin = self.camera.viewport["x_min"]
         xmax = self.camera.viewport["x_max"]
@@ -640,7 +640,7 @@ class Cena:
 
         # passo2: criar a lista da face
         sujeito = []
-        for v in vertices_face_ndc:
+        for v in vertices_face_tela:
             sujeito.append(VerticeWA(v[0], v[1], v[2])) # x, y, z
 
         for i in range(len(sujeito)):
@@ -713,7 +713,7 @@ class Cena:
         # CASO ESPECIAL: O polígono está 100% dentro da tela
         if len(poligonos_recortados) == 0:
             if (xmin <= sujeito[0].x <= xmax) and (ymin <= sujeito[0].y <= ymax):
-                poligono_2d = [(v[0], v[1]) for v in vertices_face_ndc]
+                poligono_2d = [(v[0], v[1]) for v in vertices_face_tela]
                 return [poligono_2d] 
 
         return poligonos_recortados

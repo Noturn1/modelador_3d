@@ -129,11 +129,11 @@ for i, v_model in enumerate(cubo.vertices_modelo_transformados):
     print("CLIP       :", v_clip)
 
     if v_clip[3] > (camera.near/camera.far):
-        v_ndc = [
+        v_tela = [
             v_clip[0] / v_clip[3],
             v_clip[1] / v_clip[3],
             v_clip[2] / v_clip[3]
         ]
-        print("tela        :", v_ndc)
+        print("tela        :", v_tela)
 
 print("\n===== TESTE DO PIPELINE FINALIZADO =====")

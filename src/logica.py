@@ -400,19 +400,7 @@ class Cubo:
         self.centroide = self.calcular_centroide()
 
         self.trans = [self.centroide[0], self.centroide[1], self.centroide[2]] #Posição atual (referência no centróide)
-    
-class RenderPoligon:
-    #classe para definir o polígono renderizavel, guardando vertices do cubo após recorte
-    #evitar mudar a classe cubo, pra não afetar o trabalho dos outros
-    #representa uma face, que é a unidade basica a ser renderizada
-    def __init__(self, vertices_2d, ka, kd, ks, normal):
-        self.vertices_2d = vertices_2d
-        self.ka = ka
-        self.kd = kd
-        self.ks = ks
-        self.normal = normal
-
-        
+            
 
 class Camera:
 
@@ -480,8 +468,35 @@ class Camera:
         self.near = near    # Distância mínima (Z min)
         self.far = far   # Distância máxima (Z max)
 
+class VerticeWA:
+    # Estrutura auxiliar para as listas duplamente encadeadas do Weiler-Atherton
+    def __init__(self, x, y, z=0):
+        self.x = x
+        self.y = y
+        self.z = z
+        self.is_intersecao = False
+        self.is_entrada = False # True = Entrando no Clip, False = Saindo
+        self.visitado = False
+        self.proximo = None      # Ponteiro para o próximo vértice na lista do polígono
+        self.proximo_clip = None # Ponteiro para a lista da janela de recorte
+        self.alpha = 0.0         # Fator paramétrico (0 a 1) para ordenação de interseções
+
+    def __repr__(self):
+        tipo = "INT" if self.is_intersecao else "VERT"
+        dir = "(ENTRADA)" if self.is_entrada else "(SAIDA)" if self.is_intersecao else ""
+        return f"{tipo}: ({self.x:.1f}, {self.y:.1f}) {dir}"
 
 
+class RenderPoligon:
+    #classe para definir o polígono renderizavel, guardando vertices do cubo após recorte
+    #evitar mudar a classe cubo, pra não afetar o trabalho dos outros
+    #representa uma face, que é a unidade basica a ser renderizada
+    def __init__(self, vertices_2d, ka, kd, ks, normal):
+        self.vertices_2d = vertices_2d
+        self.ka = ka
+        self.kd = kd
+        self.ks = ks
+        self.normal = normal
 
 
 class Luz:
@@ -507,6 +522,9 @@ class Cena:
         self.objetos = []     # Lista de instâncias de Cubo
         self.luzes = []       # Lista de instâncias de Luz
         self.camera = None    # Instância de Camera
+        self.height = height
+        self.width = width
+        self.obejetos = []
         
         # Luz Ambiente Global (Ilumina todas as faces minimamente)
         self.ia = [0.1, 0.1, 0.1] # Cinza escuro fraco
@@ -538,12 +556,170 @@ class Cena:
                 self.color_buffer[x][y] =[0, 0, 0] # Cor de fundo
                 self.depth_buffer[x][y] = float('inf')
 
-    def recorteWA(vertices_face_ndc):
+    def recorteWA(face_ndc):
         #algoritmo de recorte Weiler-Atherton
-        # vertices_face_ndc é uma lista 
+        # face_ndc é uma instância da classe RenderPoligon
+        # vertices_face_ndc é uma lista com 4 pontos [(x0,y0), (x1,y1), (x2,y2), (x3,y3)]
+        
+        # 1. Definir a janela de recorte NDC (-1 a 1)
+        janela_x_min = Camera.viewport["x_min"]
+        janela_x_max = Camera.viewport["x_max"]
+        janela_y_min = Camera.viewport["y_min"]
+        janela_y_max = Camera.viewport["y_max"]
+
+        v0 = VerticeWA(janela_x_min, janela_y_min)
+        v1 = VerticeWA(janela_x_max, janela_y_min)
+        v2 = VerticeWA(janela_x_max, janela_y_max)
+        v3 = VerticeWA(janela_x_min, janela_y_max)
+
+        # 2. Executar o algoritmo de Weiler-Atherton
+        
+        # O algoritmo retorna uma lista de polígonos visíveis.
+        # Exemplo: um pentágono resultante de um corte de quina.
+        # Retorno: [ [(x1,y1), (x2,y2), (x3,y3), (x4,y4), (x5,y5)] ]
         print()           
 
-    def renderizar(self):
+
+
+    @staticmethod
+    def inserir_vertice_ordenado(p_inicio, p_fim, novo_vertice):
+        atual = p_inicio
+        # Procura a posição correta baseada no 'alpha' (distância do início da reta)
+        while atual.proximo != p_fim and atual.proximo.alpha < novo_vertice.alpha:
+            atual = atual.proximo
+        
+        # Insere o novo_vertice na corrente
+        novo_vertice.proximo = atual.proximo
+        atual.proximo = novo_vertice
+
+
+    @staticmethod
+    def calcular_intersecao(p1, p2, p3, p4):
+        """
+        Calcula a interseção entre o segmento A (p1->p2) e B (p3->p4).
+        Retorna (x, y, t) ou None se não houver cruzamento.
+        """
+        denominador = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x)
+
+        if abs(denominador) < 1e-6:
+            # as multíplicações de matriz geram muito erro de ponto flutuante
+            # acaba saindo muitos valores proximos de zero, que deveriam ser zero
+            # se não fizer isso, a conta aqui embaixo quebra pq divide por um numero muito pequenp
+            return None # considera as linhas paralelas
+
+        # t = posição da interseção na reta 1 (Face)
+        t = ((p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x)) / denominador
+        # u = posição da interseção na reta 2 (Janela)
+        u = ((p1.x - p3.x) * (p1.y - p2.y) - (p1.y - p3.y) * (p1.x - p2.x)) / denominador
+
+        if 0.0 <= t <= 1.0 and 0.0 <= u <= 1.0:
+            int_x = p1.x + t * (p2.x - p1.x)
+            int_y = p1.y + t * (p2.y - p1.y)
+            return (int_x, int_y, t)
+
+        return None
+
+
+    def recorteWA(self, vertices_face_ndc):
+        # passo 1: definir a janela de recorte
+        xmin = self.camera.viewport["x_min"]
+        xmax = self.camera.viewport["x_max"]
+        ymin = self.camera.viewport["y_min"]
+        ymax = self.camera.viewport["y_max"]
+        
+        # cria os vértices da janela no sentido horário
+        janela = [
+            VerticeWA(xmin, ymin), # v0: Fundo-Esq
+            VerticeWA(xmax, ymin), # v1: Fundo-Dir
+            VerticeWA(xmax, ymax), # v2: Topo-Dir
+            VerticeWA(xmin, ymax)  # v3: Topo-Esq
+        ]
+        # encadear os vértices da janela
+        for i in range(4):
+            janela[i].proximo = janela[(i + 1) % 4]
+
+        # passo2: criar a lista da face
+        sujeito = []
+        for v in vertices_face_ndc:
+            sujeito.append(VerticeWA(v[0], v[1], v[2])) # x, y, z
+
+        for i in range(len(sujeito)):
+            sujeito[i].proximo = sujeito[(i + 1) % len(sujeito)]
+
+        # passo 3: calcular intercessões entre a janela e a face
+        for i in range(len(sujeito)):
+            p1 = sujeito[i]
+            p2 = sujeito[(i + 1) % len(sujeito)]
+
+            for j in range(4):
+                p3 = janela[j]
+                p4 = janela[(j + 1) % 4]
+
+                intersecao = self.calcular_intersecao(p1, p2, p3, p4)
+                
+                if intersecao:
+                    ix, iy, t = intersecao
+                    
+                    # 1. Cria o vértice para a lista da fave
+                    int_sujeito = VerticeWA(ix, iy)
+                    int_sujeito.is_intersecao = True
+                    int_sujeito.alpha = t # 't' da reta da face
+                    
+                    # 2. Cria o vértice (gêmeo) para a lista da Janela
+                    u = ((ix - p3.x) * (p4.x - p3.x) + (iy - p3.y) * (p4.y - p3.y)) / ((p4.x - p3.x)**2 + (p4.y - p3.y)**2)
+                    int_janela = VerticeWA(ix, iy)
+                    int_janela.is_intersecao = True
+                    int_janela.alpha = u # 'u' da reta da janela
+
+                    # Linka os gêmeos (O "troca-trilho" do algoritmo)
+                    int_sujeito.proximo_clip = int_janela
+                    int_janela.proximo_clip = int_sujeito
+
+                    # Define Entrada/Saída
+                    p2_dentro = (xmin <= p2.x <= xmax) and (ymin <= p2.y <= ymax)
+                    int_sujeito.is_entrada = p2_dentro
+                    int_janela.is_entrada = p2_dentro
+
+                    # Insere nas listas
+                    self.inserir_vertice_ordenado(p1, p2, int_sujeito)
+                    self.inserir_vertice_ordenado(p3, p4, int_janela)
+
+        # passo 4: varrer a lista e ligar os poligonos
+        poligonos_recortados = []
+        
+        atual = sujeito[0]
+        for _ in range(len(sujeito) * 2): # Limite de segurança contra loops infinitos
+            if atual.is_intersecao and atual.is_entrada and not atual.visitado:
+                novo_poligono = []
+                p_nav = atual
+                
+                while not p_nav.visitado:
+                    p_nav.visitado = True
+                    novo_poligono.append((p_nav.x, p_nav.y))
+                    
+                    if p_nav.is_intersecao:
+                        p_nav.proximo_clip.visitado = True # Marca o gêmeo como visitado
+                        if p_nav.is_entrada:
+                            p_nav = p_nav.proximo # ENTRADA: Segue o Sujeito
+                        else:
+                            p_nav = p_nav.proximo_clip.proximo # SAÍDA: Segue a Janela
+                    else:
+                        p_nav = p_nav.proximo # Vértice comum
+                
+                poligonos_recortados.append(novo_poligono)
+
+            atual = atual.proximo
+
+        # CASO ESPECIAL: O polígono está 100% dentro da tela
+        if len(poligonos_recortados) == 0:
+            if (xmin <= sujeito[0].x <= xmax) and (ymin <= sujeito[0].y <= ymax):
+                poligono_2d = [(v[0], v[1]) for v in vertices_face_ndc]
+                return [poligono_2d] 
+
+        return poligonos_recortados
+
+
+    def renderizar(self, cubos, camera):
         # Aqui entrará o pipeline principal:
         # 1. Limpar Buffers
         self.limpar_buffers()

@@ -134,6 +134,6 @@ for i, v_model in enumerate(cubo.vertices_modelo_transformados):
             v_clip[1] / v_clip[3],
             v_clip[2] / v_clip[3]
         ]
-        print("NDC        :", v_ndc)
+        print("tela        :", v_ndc)
 
 print("\n===== TESTE DO PIPELINE FINALIZADO =====")

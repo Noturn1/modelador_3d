@@ -20,21 +20,14 @@ class Vector:
     # Classe para operações de vetor/ponto (x, y, z)
     # staticmethod permite chamar o metodo sem precisar incializar a classe
     @staticmethod
-    def create_vector(A, B):
-        Vx = B[0] - A[0]
-        Vy = B[1] - A[1]
-        Vz = B[2] - A[2]
+    def norm(V):
+        # Calcula a soma dos quadrados dos componentes
+        soma_quadrados = 0.0
+        for componente in V:
+            soma_quadrados += componente**2
 
-        return [Vx, Vy, Vz, 0]
-
-    @staticmethod
-    def normalize(V):
-        mag = math.sqrt(V[0] ** 2 + V[1] ** 2 + V[2] ** 2)
-
-        if mag == 0:
-            return [0, 0, 0, V[3]]
-
-        return [V[0] / mag, V[1] / mag, V[2] / mag, V[3]]
+        # Retorna a raiz quadrada da soma
+        return math.sqrt(soma_quadrados)
 
     @staticmethod
     def mul(mat, ponto):
@@ -498,7 +491,7 @@ class Cena:
         material: Objeto com ka, kd, ks (para o Phong)
         """
 
-        # Encontrar limites em Y
+        # 1. Encontrar limites em Y
         y_min = int(min(v.y for v in vertices_tela))
         y_max = int(min(v.y for v in vertices_tela))
 
@@ -551,11 +544,350 @@ class Cena:
                     }
                 )
 
-    def renderizar(self):
+            start_y = int(p1.y)
+            if start_y < y_max:
+                if start_y < 0:
+                    start_y = 0  # Clipagem simples superior
+                if start_y in et:
+                    et[start_y].append(aresta)
 
-        # Aqui entrará o pipeline principal:
-        # 1. Limpar Buffers
+        # Lista de arestas ativas (AET)
+        aet = []
+
+        # 2. Varredura das scanlines
+        for y in range(y_min, y_max):
+            if y in et:
+                aet.extend(et[y])
+
+            # Remove as arestas concluídas
+            aet = [e for e in aet if y < e["ymax"]]
+
+            # Ordena por X
+            aet.sort(key=lambda k: k["x"])
+
+            # Preenche spans (pares de arestas)
+            for i in range(0, len(aet), 2):
+                if i + 1 >= len(aet):
+                    break
+                e1, e2 = aet[i], aet[i + 1]
+
+                x_start = int(math.ceil(e1["x"]))
+                x_end = int(math.ceil(e2["x"]))
+
+                # Clipagem horizontal de X
+                x_start = max(0, x_start)
+                x_end = min(self.width, x_end)
+
+                if x_end <= x_start:
+                    continue
+
+                span = e2["x"] - e1["x"]
+                if span == 0:
+                    span = 1
+
+                # Setup de interpolação do Z
+                z = e1["z"]
+                dz_dx = (e2["z"] - e1["z"]) / span
+
+                # Setup de interpolação das normais (Phong)
+                if shader_mode == 2:
+                    nx, ny, nz = e1["nx"], e1["ny"], e1["nz"]
+                    dnx_dx = (e2["nx"] - e1["nx"]) / span
+                    dny_dx = (e2["ny"] - e1["ny"]) / span
+                    dnz_dx = (e2["nz"] - e1["nz"]) / span
+
+                # 3. Loop dos Pixels (X)
+                for x in range(x_start, x_end):
+                    # Teste de Z-Buffer
+                    if z < self.depth_buffer[x][y]:
+                        self.depth_buffer[x][y] = z  # Atualiza Z
+
+                        cor_final = (0, 0, 0)
+
+                        if shader_mode == 1:
+                            cor_final = cor_flat
+
+                        elif shader_mode == 2:
+                            # Renormalizar vetor interpolado
+                            mod = math.sqrt(nx**2 + ny**2 + nz**2)
+                            if mod == 0:
+                                mod = 1
+                            N = (nx / mod, ny / mod, nz / mod)
+
+                            # Calcula iluminação por pixel
+                            cor_final = self._calcular_phong_pixel(N, material)
+
+                        self.color_buffer[x][y] = cor_final
+
+                    # Incrementa Z e as normais
+                    z += dz_dx
+                    if shader_mode == 2:
+                        nx += dnx_dx
+                        ny += dny_dx
+                        nz += dnz_dx
+
+            for e in aet:
+                e["x"] += e["dx_dy"]
+                e["z"] += e["dz_dy"]
+                if shader_mode == 2:
+                    e["nx"] += e["dnx_dy"]
+                    e["ny"] += e["dny_dy"]
+                    e["nz"] += e["dnz_dy"]
+
+    def _calcular_phong_pixel(self, N, material):
+        # N -> vetor normal interpolado
+
+        # 1. Componente ambiente (Ia * Ka)
+        # Inicia com cor ambiente global
+        r = self.ia[0] * material.ka[0]
+        g = self.ia[1] * material.ka[1]
+        b = self.ia[2] * material.ka[2]
+
+        # Posição do observador (assumindo que está em +Z infinito para simplificar)
+        S = (0, 0, 1)
+
+        for luz in self.luzes:
+            # Recupera direção da luz (considerando como direcional)
+            # L é vetor contrário da direção da luz
+            lx, ly, lz = (
+                -luz.posicao_ou_direcao[0],
+                -luz.posicao_ou_direcao[1],
+                -luz.posicao_ou_direcao[2],
+            )
+
+            # Normaliza L
+            mod_l = math.sqrt(lx**2 + ly**2 + lz**2)
+            if mod_l == 0:
+                mod_l = 1
+
+            L = (lx / mod_l, ly / mod_l, lz / mod_l)
+
+            # 2. Componente difusa (Id * Kd * (N * L))
+            dot_nl = max(0, N[0] * L[0] + N[1] * L[1] + N[2] * L[2])
+
+            r += luz.id[0] * material.kd[0] * dot_nl
+            g += luz.id[1] * material.kd[1] * dot_nl
+            b += luz.id[2] * material.kd[2] * dot_nl
+
+            # 3. Componente especular simplificado (Is * Ks * (N * H)^n)
+            if dot_nl > 0:  # Só existe especular se a luz atinge a face
+
+                # Estamos calculando o H dentro do loop para deixar a possibilidade de usar
+                # iluminação pontual ou câmeras móveis no projeto e a diferença de performance é mínima
+
+                # Cálculo do vetor H (Halfway/Bissetriz)
+                # H = (L + S) / |L + S|
+                hx = L[0] + S[0]
+                hy = L[1] + S[1]
+                hz = L[2] + S[2]
+
+                mod_h = math.sqrt(hx**2 + hy**2 + hz**2)
+                if mod_h == 0:
+                    mod_h = 1
+                H = (hx / mod_h, hy / mod_h, hz / mod_h)
+
+                # Produto escalar (N * H)
+                dot_nh = max(0, N[0] * H[0] + N[1] * H[1] + N[2] * H[2])
+
+                # Expoente especular (brilho)
+                spec = dot_nh ** material.ks[3]
+
+                r += luz.i_spec[0] * material.ks[0] * spec
+                g += luz.i_spec[1] * material.ks[1] * spec
+                b += luz.i_spec[2] * material.ks[2] * spec
+
+        # Clamp para garantir RGB entre 0 e 255
+        r = min(255, max(0, int(r * 255)))
+        g = min(255, max(0, int(g * 255)))
+        b = min(255, max(0, int(b * 255)))
+
+        return (r, g, b)
+
+    def renderizar(self):
+        """
+        Executa o Pipeline Gráfico 3D completo:
+        1. Limpa a tela.
+        2. Calcula matrizes de Visualização (View), Projeção e Viewport.
+        3. Transforma vértices do Mundo -> Tela.
+        4. Realiza Culling (Faces Ocultas).
+        5. Rasteriza as faces visíveis usando Flat ou Phong.
+        """
+
+        # 1. Limpar Buffers (de Cor e Z-buffer)
         self.limpar_buffers()
-        # 2. Calcular matrizes
-        # 3. Para cada objeto -> Rasterizar
-        pass
+
+        if not self.camera:
+            print("Erro: nenhuma câmera definida na cena.")
+            return
+
+        # ==============================================================================
+        # ETAPA 1: CÁLCULO DAS MATRIZES GLOBAIS (View e Projection)
+        # ==============================================================================
+
+        # Recupera parâmetros da câmera para legibilidade
+        d = self.camera.distancia_focal
+        near = self.camera.near
+        far = self.camera.far
+
+        # Dimensões da janela de visualização (View Plane Window)
+        u_min, u_max = self.camera.window["u_min"], self.camera.window["u_max"]
+        v_min, v_max = self.camera.window["v_min"], self.camera.window["v_max"]
+
+        # Cálculos auxiliares para matrizes C e D
+        Su = (u_max - u_min) / 2
+        Sv = (v_max - v_min) / 2
+        Cu = (u_max + u_min) / 2
+        Cv = (v_max + v_min) / 2
+
+        # z_min para matriz P (relação entre near e far no volume canônico)
+        # geralmente -n/f
+        z_min_val = -(near / far) if far != 0 else -1
+
+        # --- Construção da Matriz de Visualização e Normalização (N = P * D * C * B * A) ---
+        # Ordem de multiplicação: A última operação fica à esquerda.
+
+        # A: Translação do Mundo para o Olho
+        mat_A = Pipeline.get_matrix_A(self.camera.vrp)
+
+        # B: Rotação do Mundo para o Olho
+        mat_B = Pipeline.get_matrix_B(self.camera.u, self.camera.v, self.camera.n)
+
+        # C: Cisalhamento (Shear) para centralizar janela
+        mat_C = Pipeline.get_matrix_C(Cu, Cv, d)
+
+        # D: Escala para o volume canônico
+        mat_D = Pipeline.get_matrix_D(Su, Sv, d, far)
+
+        # P: Transformação de Perspectiva (Deformação)
+        mat_P = Pipeline.get_matrix_P(z_min_val)
+
+        # Composição: N = P * D * C * B * A
+        m_view = Mat4.mul(mat_B, mat_A)
+        m_norm = Mat4.mul(mat_D, mat_C)
+        m_proj = Mat4.mul(mat_P, m_norm)
+
+        # Matriz Combinada (Mundo -> Clip Space)
+        m_total_proj = Mat4.mul(m_proj, m_view)
+
+        # ==============================================================================
+        # ETAPA 2: CÁLCULO DA MATRIZ DE TELA (Viewport)
+        # ==============================================================================
+
+        # Mapeamento do volume canônico [-1, 1] para coordenadas de pixel [0, width]
+
+        # J: Espelhamento/Orientação (Y cresce pra baixo na tela)
+        mat_J = Pipeline.get_matrix_J()
+
+        # K: Translação/Escala prévia ( NDC[-1,1] -> [0,1] )
+        mat_K = Pipeline.get_matrix_K()
+
+        # L: Escala para dimensões da viewport
+        # Z mapeado para [0, 1] para o Z-Buffer
+        mat_L = Pipeline.get_matrix_L(
+            self.viewport["x_max"],
+            self.viewport["x_min"],
+            self.viewport["y_max"],
+            self.viewport["y_min"],
+            1,
+            0,  # Z max, Z min
+        )
+
+        # M: Translação final (ajuste de meio pixel)
+        mat_M = Pipeline.get_matrix_M()
+
+        # Composição: S = M * L * J * K
+        m_screen_temp = Mat4.mul(mat_L, mat_J)
+        m_screen_temp2 = Mat4.mul(m_screen_temp, mat_K)
+        m_screen = Mat4.mul(mat_M, m_screen_temp2)
+
+        # ==============================================================================
+        # ETAPA 3: PROCESSAMENTO DOS OBJETOS
+        # ==============================================================================
+        
+        for obj in self.objetos:
+            # Nota: obj.vertices_modelo_transformados já deve ter sofrido 
+            # Rotação/Translação/Escala de MODELO antes de chamar renderizar.
+
+            for face in obj.lista_faces:
+
+                # --- BACK-FACE CULLING (Remoção de Faces Ocultas) ---
+                # Usamos um vértice da face para calcular o vetor de visão
+                # Como é um cubo, usamos os índices da face para pegar vértices reais
+                idx0 = face.indices[0]
+                idx1 = face.indices[1]
+                idx2 = face.indices[2]
+
+                v0 = obj.vertices_modelo_transformados[idx0]
+                v1 = obj.vertices_modelo_transformados[idx1]
+                v2 = obj.vertices_modelo_transformados[idx2]
+
+                # Centróide aproximado da face para vetor de visão
+                cx = (v0[0] + v1[0] + v2[0]) / 3
+                cy = (v0[1] + v1[1] + v2[1]) / 3
+                cz = (v0[2] + v1[2] + v2[2]) / 3
+
+                # Vetor Visão (VRP - Centróide) em coordenadas de Mundo
+                # Assumindo VRP como posição da câmera
+                vx = self.camera.vrp[0] - cx
+                vy = self.camera.vrp[1] - cy
+                vz = self.camera.vrp[2] - cz
+
+                # Produto Escalar (Normal da Face . Vetor Visão)
+                dot_vis = (face.normal[0] * vx) + (face.normal[1] * vy) + (face.normal[2] * vz)
+
+                # Só desenha se dot > 0 (se não está apontando para longe ou perpendicular (ocultas))
+                if dot_vis > 0:
+
+                    vertices_tela_para_rasterizar = []
+                    
+                    # Processa cada vértice da face
+                    for idx in face.indices:
+                        v_mundo = obj.vertices_modelo_transformados[idx] # [x, y, z, 1]
+
+                        # 1. Transformação de Projeção (Mundo -> Clip Space)
+                        v_clip = Vector.mul(m_total_proj, v_mundo)
+                        
+                        # 2. Divisão Homogênea (Perspectiva)
+                        w = v_clip[3]
+                        if w == 0: w = 0.0001 # Evitar divisão por zero
+
+                        v_ndc = [
+                            v_clip[0] / w,
+                            v_clip[1] / w,
+                            v_clip[2] / w,
+                            1.0
+                        ]
+
+                        # 3. Transformação de Viewport (NDC -> Tela)
+                        v_tela = Vector.mul(m_screen, v_ndc)
+
+                        # Cria o vértice pronto para o rasterizador
+                        # Passamos a normal da FACE.
+                        vt = VerticeTela(
+                            x=v_tela[0], 
+                            y=v_tela[1], 
+                            z=v_tela[2], # Z para o buffer
+                            normal=face.normal 
+                        )
+                        vertices_tela_para_rasterizar.append(vt)
+
+                    # --- Definição do Modo de Sombreamento ---
+                    # Pode-se usar um atributo da cena para definir (padrão Phong para testes)
+                    modo_shader = 2  # 1 = Flat, 2 = Phong
+
+                    cor_flat = (0, 0, 0)
+
+                    # Cálculo de iluminação CONSTANTE (Flat)
+                    # Calcula-se uma vez para a face toda, geralmente no centróide
+
+                    # Vetor Luz (Exemplo com a primeira luz da cena)
+                        if len(self.luzes) > 0:
+                            luz = self.luzes[0]
+                            # Simplificação para Flat: Produto escalar Normal * Luz
+                            cor_flat = self._calcular_phong_pixel(face.normal, obj)
+                        else:
+                            cor_flat = (100, 100, 100) # Cor padrão se sem luz
+
+                    # Chamar rasterizador
+                    self._rasterizar_face(vertices_tela_para_rasterizar, modo_shader, cor_flat, obj)
+

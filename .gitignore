@@ -1,6 +1,5 @@
 LICENSE
 src/__pycache__
 testes/__pycache__
-gitignore
-
-
+.vscode/
+meu.txt

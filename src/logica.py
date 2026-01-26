@@ -17,17 +17,18 @@ class VerticeTela:
 
 class Vector:
 
-    # Classe para operações de vetor/ponto (x, y, z)
-    # staticmethod permite chamar o metodo sem precisar incializar a classe
+#Classe para operações de vetor/ponto (x, y, z)
+#staticmethod permite chamar o metodo sem precisar incializar a classe
     @staticmethod
     def norm(V):
         # Calcula a soma dos quadrados dos componentes
         soma_quadrados = 0.0
         for componente in V:
-            soma_quadrados += componente**2
-
+            soma_quadrados += componente ** 2
+        
         # Retorna a raiz quadrada da soma
         return math.sqrt(soma_quadrados)
+
 
     @staticmethod
     def mul(mat, ponto):
@@ -66,10 +67,9 @@ class Vector:
         # Normalização
         modulo = math.sqrt(Nx**2 + Ny**2 + Nz**2)
 
-        if modulo == 0:
-            return (0, 0, 0)  # Evita divisão por zero
-        return (Nx / modulo, Ny / modulo, Nz / modulo)
-
+        if modulo == 0: return (0, 0, 0) # Evita divisão por zero
+        return (Nx/modulo, Ny/modulo, Nz/modulo)
+    
     @staticmethod
     def dot_product(A, B):
         # Calcula o produto escalar de dois vetores (x, y, z)
@@ -83,24 +83,25 @@ class Pipeline:
     @staticmethod
     def get_matrix_A(Viewpoint):
 
-        return [
+        return[
             [1, 0, 0, Viewpoint[0]],
             [0, 1, 0, Viewpoint[1]],
             [0, 0, 1, Viewpoint[2]],
-            [0, 0, 0, 1],
-        ]
+            [0, 0, 0, 1           ]
+            ]
+        
 
         return Mat4.trans(Viewpoint[0], Viewpoint[1], Viewpoint[2])
-
+    
     @staticmethod
     # recebe vetores (x, y, z) como parâmetro
     def get_matrix_B(u, v, n):
 
-        return [
+        return[
             [u[0], v[0], n[0], 0],
             [u[1], v[1], n[1], 0],
             [u[2], v[2], n[2], 0],
-            [0, 0, 0, 1],
+            [0,    0,    0,    1]
         ]
 
     @staticmethod
@@ -119,20 +120,25 @@ class Pipeline:
         ]
 
     @staticmethod
-    def get_matrix_P(z_min):
+    def get_matrix_P(far, near):
 
         return [
-            [1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1 / (1 - z_min), (-z_min) / (1 - z_min)],
-            [0, 0, 1, 0],
-        ]
-
+            [1, 0, 0,           0                 ],
+            [0, 1, 0,           0                 ],
+            [0, 0, 1/(1-z_min), (-z_min)/(1-z_min)],
+            [0, 0, 1,           0                 ]
+        ]        
+    
     @staticmethod
     def get_matrix_J():
 
-        return [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]]
-
+        return[
+            [1, 0, 0,  0],
+            [0, 1, 0,  0],
+            [0, 0, -1, 0],
+            [0, 0, 0,  1]     
+        ]
+    
     @staticmethod
     def get_matrix_K():
 
@@ -329,27 +335,27 @@ class Cubo:
         # faces que vão sofrer alterações
         self.model_faces = [face0, face1, face2, face3, face4, face5]
         # Dados do mundo
+   
+        #matrix que vai sofrer transformações e ser rasterizada
 
-        # matrix que vai sofrer transformações e ser rasterizada
+        self.model_matrix = [ 
+            [v0[0],v1[0],v2[0],v3[0],v4[0],v5[0],v6[0],v7[0]],
+            [v0[1],v1[1],v2[1],v3[1],v4[1],v5[1],v6[1],v7[1]],
+            [v0[2],v1[2],v2[2],v3[2],v4[2],v5[2],v6[2],v7[2]],
+            [1,    1,    1,    1,    1,    1,    1,    1    ]
+        ] 
+        
+                
 
-        self.model_matrix = [
-            [v0[0], v1[0], v2[0], v3[0], v4[0], v5[0], v6[0], v7[0]],
-            [v0[1], v1[1], v2[1], v3[1], v4[1], v5[1], v6[1], v7[1]],
-            [v0[2], v1[2], v2[2], v3[2], v4[2], v5[2], v6[2], v7[2]],
-            [1, 1, 1, 1, 1, 1, 1, 1],
-        ]
-
-        self.rotacao = [0.0, 0.0, 0.0]  # Rotação atual
-        self.escala = 1.0  # escala atual
+        self.rotacao = [0.0, 0.0, 0.0] # Rotação atual
+        self.escala = 1.0 # escala atual
         self.atualizar_normais()
         self.centroide = self.calcular_centroide()
 
-        self.trans = [
-            self.centroide[0],
-            self.centroide[1],
-            self.centroide[2],
-        ]  # Posição atual (referência no centróide)
+        self.trans = [self.centroide[0], self.centroide[1], self.centroide[2]] #Posição atual (referência no centróide)
+    
 
+        
 
 class Camera:
 
@@ -357,17 +363,17 @@ class Camera:
         return (self.u, self.v, self.n)
 
     def cal_view_spec(self):
-        # função para calcular o view spec (página 4 do artigo do Alvy-Ray)
+        #função para calcular o view spec (página 4 do artigo do Alvy-Ray)
         n = [None, None, None]
         norm_n = Vector.norm(self.vpn)
 
         for i in range(len(self.vpn)):
-            n[i] = self.vpn[i] / norm_n
-
+           n[i] = self.vpn[i]/norm_n 
+        
         up = [None, None, None]
         norm_up = Vector.norm(self.vup)
         for i in range(len(self.vup)):
-            up[i] = self.vup[i] / norm_up
+           up[i] = self.vup[i]/norm_up 
 
         dot = Vector.dot_product(up, n)
 
@@ -377,39 +383,45 @@ class Camera:
 
         v_temp = [vx, vy, vz]
 
-        # normalizar o vetor v resultante
+        #normalizar o vetor v resultante
         # Calcula a magnitude uma vez baseada em x, y e z
         v = [None, None, None]
         norm_v = Vector.norm(v_temp)
 
         for i in range(len(v_temp)):
-            v[i] = v_temp[i] / norm_v
+           v[i] = v_temp[i]/norm_v 
+    
+       
 
-        # calcular vetor u (invertido pra usar a regra da mão direita)
+        #calcular vetor u (invertido pra usar a regra da mão direita)
         u = Vector.cross_product(v, n)
 
         return u, v, n
 
-    def __init__(self, vrp, vpn, vup, prp, near, far, d, u_min, u_max, v_min, v_max):
+    def __init__(self, vrp, P, Y, u_max, u_min, v_max, v_min, DP, near, far,
+                 x_min, x_max, y_min, y_max, Vres, Hres):
+        
         self.vrp = [vrp[0], vrp[1], vrp[2]]
-        self.vpn = [vpn[0], vpn[1], vpn[2]]
-        self.vup = [vup[0], vup[1], vpn[2]]
+        self.N = Vector.create_vector(vrp, P)
+        self.Y = [Y[0], Y[1], Y[2]]
 
-        self.prp = [prp[0], prp[1], prp[2]]
-
-        # Distância focal (d)
+        self.prp = [prp[0], prp[1], prp[2]] 
+        
+        # Distância focal (d) 
         self.distancia_focal = d
-
-        # Janela
+        
+        # Janela 
         # Define a abertura da lente (Zoom)
         # u_min, u_max, v_min, v_max
-        self.window = {"u_min": u_min, "u_max": u_max, "v_min": v_min, "v_max": v_max}
-
+        self.window = {"u_min" : u_min, "u_max": u_max,
+                       "v_min" : v_min, "v_max" : v_max}
+        
         # Planos de Recorte (Clipping) para definir o Volume de Visão
         self.near = near  # Distância mínima (Z min)
         self.far = far  # Distância máxima (Z max)
 
         self.u, self.v, self.n = self.cal_view_spec()
+
 
 
 class Luz:
@@ -439,17 +451,20 @@ class Luz:
 
 
 class Cena:
-    def __init__(self, width, height):
+    def __init__(self, height, width):
         # --- Gerenciamento de Objetos ---
-        self.objetos = []  # Lista de instâncias de Cubo
-        self.luzes = []  # Lista de instâncias de Luz
-        self.camera = None  # Instância de Camera
-
+        self.objetos = []     # Lista de instâncias de Cubo
+        self.luzes = []       # Lista de instâncias de Luz
+        self.camera = None    # Instância de Camera
+        
         # Luz Ambiente Global (Ilumina todas as faces minimamente)
-        self.ia = [0.1, 0.1, 0.1]  # Cinza escuro fraco
+        self.ia = [0.1, 0.1, 0.1] # Cinza escuro fraco
 
         # --- Viewport (Dimensões da Tela/Janela do SO) ---
-        self.viewport = {"x_min": 0, "y_min": 0, "x_max": width, "y_max": height}
+        self.viewport = {
+            'x_min': 0, 'y_min': 0,
+            'x_max': width, 'y_max': height
+        }
         self.width = width
         self.height = height
 
@@ -545,7 +560,6 @@ class Cena:
                 )
 
     def renderizar(self):
-
         # Aqui entrará o pipeline principal:
         # 1. Limpar Buffers
         self.limpar_buffers()

@@ -471,7 +471,7 @@ class Cena:
     def adicionar_luz(self, luz):
         self.luzes.append(luz)
 
-    def definir_camera(self, camera):
+    def definir_camera(self, camera: list[float]):
         self.camera = camera
 
     def limpar_buffers(self):

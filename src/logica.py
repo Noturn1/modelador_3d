@@ -1,47 +1,59 @@
 import math
 
 
+class VerticeTela:
+    """
+    Representa um vértice já projetado no espaço de tela (Screen Space).
+    Armazena x, y (inteiros para pixel), z (para buffer), cor e normal (para iluminação).
+    """
+
+    def __init__(self, x, y, z, cor=None, normal=None):
+        self.x = x
+        self.y = y
+        self.z = z  # Profundidade
+        self.cor = cor  # Tupla (r, g, b) para Objeto cor
+        self.normal = normal  # Tupla (nx, ny, nz) para Phong
+
+
 class Vector:
 
-#Classe para operações de vetor/ponto (x, y, z)
-#staticmethod permite chamar o metodo sem precisar incializar a classe
+    # Classe para operações de vetor/ponto (x, y, z)
+    # staticmethod permite chamar o metodo sem precisar incializar a classe
     @staticmethod
     def norm(V):
         # Calcula a soma dos quadrados dos componentes
         soma_quadrados = 0.0
         for componente in V:
-            soma_quadrados += componente ** 2
-        
+            soma_quadrados += componente**2
+
         # Retorna a raiz quadrada da soma
         return math.sqrt(soma_quadrados)
-
 
     @staticmethod
     def mul(mat, ponto):
         # função pra aplicar transformação em um vetor/ponto
         # ponto deve ser uma tupla ou lista (x, y, z, w)
         # O resultado é um novo ponto transformado
-            
+
         res = [0.0, 0.0, 0.0, 0.0]
-            
-        for i in range(4): # Para cada linha da matriz
+
+        for i in range(4):  # Para cada linha da matriz
             soma = 0.0
-            for j in range(4): # Multiplica pela coluna do vetor
+            for j in range(4):  # Multiplica pela coluna do vetor
                 soma += mat[i][j] * ponto[j]
             res[i] = soma
-                
-        return res    
-    
+
+        return res
+
     @staticmethod
     def cross_product(A, B):
-        #função para calcular produto vetorial
-        # recebe dois vetores (x, y, z)    
-        
+        # função para calcular produto vetorial
+        # recebe dois vetores (x, y, z)
+
         Ux = A[0]
         Uy = A[1]
         Uz = A[2]
 
-        
         Vx = B[0]
         Vy = B[1]
         Vz = B[2]
@@ -54,14 +66,14 @@ class Vector:
         # Normalização
         modulo = math.sqrt(Nx**2 + Ny**2 + Nz**2)
 
-        if modulo == 0: return (0, 0, 0) # Evita divisão por zero
-        return (Nx/modulo, Ny/modulo, Nz/modulo)
-    
-    @staticmethod
-    def dot_product(A,B):
-    # Calcula o produto escalar de dois vetores (x, y, z)
-        return (A[0] * B[0]) + (A[1] * B[1]) + (A[2] * B[2])
+        if modulo == 0:
+            return (0, 0, 0)  # Evita divisão por zero
+        return (Nx / modulo, Ny / modulo, Nz / modulo)
 
+    @staticmethod
+    def dot_product(A, B):
+        # Calcula o produto escalar de dois vetores (x, y, z)
+        return (A[0] * B[0]) + (A[1] * B[1]) + (A[2] * B[2])
 
 
 class Pipeline:
@@ -71,164 +83,116 @@ class Pipeline:
     @staticmethod
     def get_matrix_A(Viewpoint):
 
-        return[
+        return [
             [1, 0, 0, Viewpoint[0]],
             [0, 1, 0, Viewpoint[1]],
             [0, 0, 1, Viewpoint[2]],
-            [0, 0, 0, 1           ]
-            ]
-        
+            [0, 0, 0, 1],
+        ]
 
         return Mat4.trans(Viewpoint[0], Viewpoint[1], Viewpoint[2])
-    
+
     @staticmethod
-    #recebe vetores (x, y, z) como parâmetro
+    # recebe vetores (x, y, z) como parâmetro
     def get_matrix_B(u, v, n):
 
-        return[
+        return [
             [u[0], v[0], n[0], 0],
             [u[1], v[1], n[1], 0],
             [u[2], v[2], n[2], 0],
-            [0,    0,    0,    1]
+            [0, 0, 0, 1],
         ]
-    
-    @staticmethod 
+
+    @staticmethod
     def get_matrix_C(Cu, Cv, d):
 
-        return[
-            [1, 0, -Cu/d,  0],
-            [0, 1, -Cv/d,  0],
-            [0, 0,  1,     0],
-            [0, 0,  0,     1]
-        ]
+        return [[1, 0, -Cu / d, 0], [0, 1, -Cv / d, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
 
     @staticmethod
     def get_matrix_D(Su, Sv, d, f):
 
         return [
-            [d/(Su*f), 0,        0,   0],
-            [0,        d/(Sv*f), 0,   0],
-            [0,        0,        1/f, 0],
-            [0,        0,        0,   1]
+            [d / (Su * f), 0, 0, 0],
+            [0, d / (Sv * f), 0, 0],
+            [0, 0, 1 / f, 0],
+            [0, 0, 0, 1],
         ]
 
     @staticmethod
     def get_matrix_P(z_min):
 
         return [
-            [1, 0, 0,           0                 ],
-            [0, 1, 0,           0                 ],
-            [0, 0, 1/(1-z_min), (-z_min)/(1-z_min)],
-            [0, 0, 1,           0                 ]
-        ]        
-    
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1 / (1 - z_min), (-z_min) / (1 - z_min)],
+            [0, 0, 1, 0],
+        ]
+
     @staticmethod
     def get_matrix_J():
 
-        return[
-            [1, 0, 0,  0],
-            [0, 1, 0,  0],
-            [0, 0, -1, 0],
-            [0, 0, 0,  1]     
-        ]
-    
+        return [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]]
+
     @staticmethod
     def get_matrix_K():
 
-        return[
-            [0.5, 0,   0, 0.5],
-            [0,   0.5, 0, 0.5],
-            [0,   0,   1, 0  ],
-            [0,   0,   0, 1  ]
-        ]
+        return [[0.5, 0, 0, 0.5], [0, 0.5, 0, 0.5], [0, 0, 1, 0], [0, 0, 0, 1]]
 
     @staticmethod
     def get_matrix_L(x_max, x_min, y_max, y_min, z_max, z_min):
 
-        return[
-            [x_max - x_min, 0,             0,              x_min],
-            [0,             y_max - y_min, 0,              y_min],
-            [0,             0,             z_max - z_min,  z_min],
-            [0,             0,              0,             1    ]
+        return [
+            [x_max - x_min, 0, 0, x_min],
+            [0, y_max - y_min, 0, y_min],
+            [0, 0, z_max - z_min, z_min],
+            [0, 0, 0, 1],
         ]
-    
+
     @staticmethod
     def get_matrix_M():
 
-        return[
-            [1,   0,     0,     0.5],
-            [0,   1,     0,     0.5],
-            [0,   0,     1,     0.5],
-            [0,   0,     0,     1  ]
-        ]
-
+        return [[1, 0, 0, 0.5], [0, 1, 0, 0.5], [0, 0, 1, 0.5], [0, 0, 0, 1]]
 
 
 class Mat4:
 
-# Classe para operações de matriz (4x4)
+    # Classe para operações de matriz (4x4)
     @staticmethod
     def print_matrix(M):
         for line in M:
             print(line)
 
-
     @staticmethod
     def identity():
-        return [
-
-            [1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1, 0],
-            [0, 0, 0, 1]
-
-        ]
+        return [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
 
     @staticmethod
     def null():
         return [
-            
             [0.0, 0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0]
-
+            [0.0, 0.0, 0.0, 0.0],
         ]
-    
+
     @staticmethod
     def trans(dx, dy, dz):
-        return [
-            [1, 0, 0, dx],
-            [0, 1, 0, dy],
-            [0, 0, 1, dz],
-            [0, 0, 0, 1 ]
-        ]
-    
+        return [[1, 0, 0, dx], [0, 1, 0, dy], [0, 0, 1, dz], [0, 0, 0, 1]]
+
     @staticmethod
     def scale(sx, sy, sz):
-        return [
-            [sx, 0, 0, 0],
-            [0, sy, 0, 0],
-            [0, 0, sz, 0],
-            [0, 0, 0,  1]
-        ]
-    
+        return [[sx, 0, 0, 0], [0, sy, 0, 0], [0, 0, sz, 0], [0, 0, 0, 1]]
+
     @staticmethod
     def rotate_z(tetha):
-        #a biblioteca aceita radianos
-        #o usuario envia o parâmetro em graus, e a conversão ocorre aqui
+        # a biblioteca aceita radianos
+        # o usuario envia o parâmetro em graus, e a conversão ocorre aqui
         tetha_rad = math.radians(tetha)
         cos = math.cos(tetha_rad)
         sen = math.sin(tetha_rad)
 
-        return[
+        return [[cos, -sen, 0, 0], [sen, cos, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
 
-            [cos, -sen, 0, 0],
-            [sen,  cos, 0, 0],
-            [0,    0,   1, 0],
-            [0,    0,   0, 1]
-        ]
-    
     @staticmethod
     def rotate_y(tetha):
 
@@ -236,13 +200,8 @@ class Mat4:
         cos = math.cos(tetha_rad)
         sen = math.sin(tetha_rad)
 
-        return[
-            [cos,  0, sen,  0],
-            [0,    1, 0,    0],
-            [-sen, 0, cos,  0],
-            [0,    0, 0,    1]
-        ]
-    
+        return [[cos, 0, sen, 0], [0, 1, 0, 0], [-sen, 0, cos, 0], [0, 0, 0, 1]]
+
     @staticmethod
     def rotate_x(tetha):
 
@@ -250,26 +209,19 @@ class Mat4:
         cos = math.cos(tetha_rad)
         sen = math.sin(tetha_rad)
 
-        return[
-            [1, 0,   0,      0],
-            [0, cos, -sen,   0],
-            [0, sen, cos,    0],
-            [0, 0,   0,      1]
-        ]
-    
+        return [[1, 0, 0, 0], [0, cos, -sen, 0], [0, sen, cos, 0], [0, 0, 0, 1]]
+
     @staticmethod
     def mul(mat1, mat2):
-        #essa função é melhor aplicada para compor matrizes
+        # essa função é melhor aplicada para compor matrizes
         res = Mat4.null()
 
-        for i in range(4):            
-            for j in range(4):       
-                for k in range(4):   
+        for i in range(4):
+            for j in range(4):
+                for k in range(4):
                     res[i][j] += mat1[i][k] * mat2[k][j]
 
         return res
-
-
 
 
 class Face:
@@ -277,22 +229,20 @@ class Face:
 
     def __init__(self, i0, i1, i2, i3):
 
-        #face do mundo
+        # face do mundo
         self.indices = (i0, i1, i2, i3)
 
-        #calcular normal (já normalizado)
-        self.normal = None        
+        # calcular normal (já normalizado)
+        self.normal = None
 
-        
+
 class Cubo:
-
 
     def print_vertices(self):
         i = 0
         for v in self.vertices_modelo_transformados:
             print(f"v{i}: {v}")
             i += 1
-
 
     def aplicar_transformacao(self, mat):
         novos_vertices = []
@@ -305,7 +255,6 @@ class Cubo:
         self.atualizar_normais()
         self.calcular_centroide()
 
-
     def atualizar_normais(self):
         for face in self.lista_faces:
             i0, i1, i2, i3 = face.indices
@@ -314,100 +263,93 @@ class Cubo:
             B = self.vertices_modelo_transformados[i1]
             C = self.vertices_modelo_transformados[i3]
 
-            AB = (B[0]-A[0], B[1]-A[1], B[2]-A[2])
-            AC = (C[0]-A[0], C[1]-A[1], C[2]-A[2])
+            AB = (B[0] - A[0], B[1] - A[1], B[2] - A[2])
+            AC = (C[0] - A[0], C[1] - A[1], C[2] - A[2])
 
             face.normal = Vector.cross_product(AB, AC)
 
-
-
     def calcular_centroide(self):
-            # Inicializa acumuladores para X, Y, Z
-            soma_x = 0.0
-            soma_y = 0.0
-            soma_z = 0.0
-            
-            num_vertices = len(self.vertices_modelo_transformados)
-            
-            # Percorre todos os vértices do cubo
-            for v in self.vertices_modelo_transformados:
-                soma_x += v[0] # Soma X
-                soma_y += v[1] # Soma Y
-                soma_z += v[2] # Soma Z
-                # O v[3] é o W, nós ignoramos ele propositalmente
-                
-            # Calcula a média aritmética
-            cx = soma_x / num_vertices
-            cy = soma_y / num_vertices
-            cz = soma_z / num_vertices
-            
-            return cx, cy, cz
-             
+        # Inicializa acumuladores para X, Y, Z
+        soma_x = 0.0
+        soma_y = 0.0
+        soma_z = 0.0
 
+        num_vertices = len(self.vertices_modelo_transformados)
+
+        # Percorre todos os vértices do cubo
+        for v in self.vertices_modelo_transformados:
+            soma_x += v[0]  # Soma X
+            soma_y += v[1]  # Soma Y
+            soma_z += v[2]  # Soma Z
+            # O v[3] é o W, nós ignoramos ele propositalmente
+
+        # Calcula a média aritmética
+        cx = soma_x / num_vertices
+        cy = soma_y / num_vertices
+        cz = soma_z / num_vertices
+
+        return cx, cy, cz
 
     # So precisamos de um vértice e a medida do lado pra definir um cubo
     # v0 poderia ser o local do clique do mouse
-    def __init__(self, v0, lado, ka, kd, ks): 
+    def __init__(self, v0, lado, ka, kd, ks):
 
         # Dados básicos: material, topologia inicial, faces
 
-        self.ka = [ka[0], ka[1], ka[2]] #(r, g, b)
-        self.kd = [kd[0], kd[1], kd[2]]  
-        self.ks = [ks[0], ks[1], ks[2], ks[3]] #(r, g, b, n)
-        
+        self.ka = [ka[0], ka[1], ka[2]]  # (r, g, b)
+        self.kd = [kd[0], kd[1], kd[2]]
+        self.ks = [ks[0], ks[1], ks[2], ks[3]]  # (r, g, b, n)
+
         x, y, z = v0[0], v0[1], v0[2]
         l = lado
 
-        #não sofre transformações
-        v0 = (x,     y,     z,     1) # Trás-Esq-Baixo
-        v1 = (x + l, y,     z,     1) # Trás-Dir-Baixo
-        v2 = (x,     y + l, z,     1) # Trás-Esq-Cima
-        v3 = (x + l, y + l, z,     1) # Trás-Dir-Cima)
-        v4 = (x,     y,     z + l, 1) # Frente-Esq-Baixo
-        v5 = (x + l, y,     z + l, 1) # Frente-Dir-Baixo
-        v6 = (x,     y + l, z + l, 1) # Frente-Esq-Cima
-        v7 = (x + l, y + l, z + l, 1) # Frente-Dir-Cima
+        # não sofre transformações
+        v0 = (x, y, z, 1)  # Trás-Esq-Baixo
+        v1 = (x + l, y, z, 1)  # Trás-Dir-Baixo
+        v2 = (x, y + l, z, 1)  # Trás-Esq-Cima
+        v3 = (x + l, y + l, z, 1)  # Trás-Dir-Cima)
+        v4 = (x, y, z + l, 1)  # Frente-Esq-Baixo
+        v5 = (x + l, y, z + l, 1)  # Frente-Dir-Baixo
+        v6 = (x, y + l, z + l, 1)  # Frente-Esq-Cima
+        v7 = (x + l, y + l, z + l, 1)  # Frente-Dir-Cima
 
-        
         self.vertices_modelo = [v0, v1, v2, v3, v4, v5, v6, v7]
         self.vertices_modelo_transformados = list(self.vertices_modelo)
 
         # Faces em sentido anti-horário
-        face0 = Face(4, 5, 7, 6) # Frente
-        face1 = Face(1, 0, 2, 3) # Traś
-        face2 = Face(0, 4, 6, 2) # Direita
-        face3 = Face(5, 1, 3, 7) # Esquerda
-        face4 = Face(2, 6, 7, 3) # Topo
-        face5 = Face(4, 0, 1, 5) # Base
-
-
+        face0 = Face(4, 5, 7, 6)  # Frente
+        face1 = Face(1, 0, 2, 3)  # Traś
+        face2 = Face(0, 4, 6, 2)  # Direita
+        face3 = Face(5, 1, 3, 7)  # Esquerda
+        face4 = Face(2, 6, 7, 3)  # Topo
+        face5 = Face(4, 0, 1, 5)  # Base
 
         self.lista_faces = (face0, face1, face2, face3, face4, face5)
-        
-        #faces que vão sofrer alterações
+
+        # faces que vão sofrer alterações
         self.model_faces = [face0, face1, face2, face3, face4, face5]
         # Dados do mundo
-   
-        #matrix que vai sofrer transformações e ser rasterizada
 
-        self.model_matrix = [ 
-            [v0[0],v1[0],v2[0],v3[0],v4[0],v5[0],v6[0],v7[0]],
-            [v0[1],v1[1],v2[1],v3[1],v4[1],v5[1],v6[1],v7[1]],
-            [v0[2],v1[2],v2[2],v3[2],v4[2],v5[2],v6[2],v7[2]],
-            [1,    1,    1,    1,    1,    1,    1,    1    ]
-        ] 
-        
-                
+        # matrix que vai sofrer transformações e ser rasterizada
 
-        self.rotacao = [0.0, 0.0, 0.0] # Rotação atual
-        self.escala = 1.0 # escala atual
+        self.model_matrix = [
+            [v0[0], v1[0], v2[0], v3[0], v4[0], v5[0], v6[0], v7[0]],
+            [v0[1], v1[1], v2[1], v3[1], v4[1], v5[1], v6[1], v7[1]],
+            [v0[2], v1[2], v2[2], v3[2], v4[2], v5[2], v6[2], v7[2]],
+            [1, 1, 1, 1, 1, 1, 1, 1],
+        ]
+
+        self.rotacao = [0.0, 0.0, 0.0]  # Rotação atual
+        self.escala = 1.0  # escala atual
         self.atualizar_normais()
         self.centroide = self.calcular_centroide()
 
-        self.trans = [self.centroide[0], self.centroide[1], self.centroide[2]] #Posição atual (referência no centróide)
-    
+        self.trans = [
+            self.centroide[0],
+            self.centroide[1],
+            self.centroide[2],
+        ]  # Posição atual (referência no centróide)
 
-        
 
 class Camera:
 
@@ -415,99 +357,99 @@ class Camera:
         return (self.u, self.v, self.n)
 
     def cal_view_spec(self):
-        #função para calcular o view spec (página 4 do artigo do Alvy-Ray)
+        # função para calcular o view spec (página 4 do artigo do Alvy-Ray)
         n = [None, None, None]
         norm_n = Vector.norm(self.vpn)
 
         for i in range(len(self.vpn)):
-           n[i] = self.vpn[i]/norm_n 
-        
+            n[i] = self.vpn[i] / norm_n
+
         up = [None, None, None]
         norm_up = Vector.norm(self.vup)
         for i in range(len(self.vup)):
-           up[i] = self.vup[i]/norm_up 
+            up[i] = self.vup[i] / norm_up
 
-        dot = Vector.dot_product(up, n) 
-        
+        dot = Vector.dot_product(up, n)
+
         vx = up[0] - (dot * n[0])
         vy = up[1] - (dot * n[1])
         vz = up[2] - (dot * n[2])
-        
+
         v_temp = [vx, vy, vz]
 
-        #normalizar o vetor v resultante
+        # normalizar o vetor v resultante
         # Calcula a magnitude uma vez baseada em x, y e z
         v = [None, None, None]
         norm_v = Vector.norm(v_temp)
 
         for i in range(len(v_temp)):
-           v[i] = v_temp[i]/norm_v 
-    
-       
+            v[i] = v_temp[i] / norm_v
 
-        #calcular vetor u (invertido pra usar a regra da mão direita)
+        # calcular vetor u (invertido pra usar a regra da mão direita)
         u = Vector.cross_product(v, n)
 
         return u, v, n
-    
-
 
     def __init__(self, vrp, vpn, vup, prp, near, far, d, u_min, u_max, v_min, v_max):
         self.vrp = [vrp[0], vrp[1], vrp[2]]
         self.vpn = [vpn[0], vpn[1], vpn[2]]
         self.vup = [vup[0], vup[1], vpn[2]]
 
-        self.prp = [prp[0], prp[1], prp[2]] 
-        
-        # Distância focal (d) 
+        self.prp = [prp[0], prp[1], prp[2]]
+
+        # Distância focal (d)
         self.distancia_focal = d
-        
-        # Janela 
+
+        # Janela
         # Define a abertura da lente (Zoom)
         # u_min, u_max, v_min, v_max
-        self.window = {"u_min" : u_min, "u_max": u_max,
-                       "v_min" : v_min, "v_max" : v_max}
-        
+        self.window = {"u_min": u_min, "u_max": u_max, "v_min": v_min, "v_max": v_max}
+
         # Planos de Recorte (Clipping) para definir o Volume de Visão
-        self.near = near    # Distância mínima (Z min)
-        self.far = far   # Distância máxima (Z max)
+        self.near = near  # Distância mínima (Z min)
+        self.far = far  # Distância máxima (Z max)
 
         self.u, self.v, self.n = self.cal_view_spec()
 
 
-
 class Luz:
     # Constantes para legibilidade
-    PONTUAL = 1 #fonte de luz na cena
-    DIRECIONAL = 2 #fonte de luz no infinito
+    PONTUAL = 1  # fonte de luz na cena
+    DIRECIONAL = 2  # fonte de luz no infinito
 
     def __init__(self, tipo, vetor_pos_dir, intensidade_rgb_s, intensidade_rgb_d):
         self.tipo = tipo  # Luz.PONTUAL ou Luz.DIRECIONAL
-        
+
         # Se for PONTUAL, vetor_pos_dir é a Posição (x, y, z)
         # Se for DIRECIONAL, vetor_pos_dir é a Direção (dx, dy, dz)
-        self.posicao_ou_direcao = [vetor_pos_dir[0], vetor_pos_dir[1], vetor_pos_dir[2]] 
-        
+        self.posicao_ou_direcao = [vetor_pos_dir[0], vetor_pos_dir[1], vetor_pos_dir[2]]
+
         # Intensidades da Fonte Luminosa
         # Cor da luz
-        self.id = [intensidade_rgb_d[0], intensidade_rgb_d[1], intensidade_rgb_d[2]]  # Intensidade Difusa (RGB)
-        self.i_spec = [intensidade_rgb_s[0], intensidade_rgb_s[1], intensidade_rgb_s[2]]  # Intensidade Especular (Geralmente igual à difusa)
+        self.id = [
+            intensidade_rgb_d[0],
+            intensidade_rgb_d[1],
+            intensidade_rgb_d[2],
+        ]  # Intensidade Difusa (RGB)
+        self.i_spec = [
+            intensidade_rgb_s[0],
+            intensidade_rgb_s[1],
+            intensidade_rgb_s[2],
+        ]  # Intensidade Especular (Geralmente igual à difusa)
+
 
 class Cena:
     def __init__(self, width, height):
         # --- Gerenciamento de Objetos ---
-        self.objetos = []     # Lista de instâncias de Cubo
-        self.luzes = []       # Lista de instâncias de Luz
-        self.camera = None    # Instância de Camera
-        
+        self.objetos = []  # Lista de instâncias de Cubo
+        self.luzes = []  # Lista de instâncias de Luz
+        self.camera = None  # Instância de Camera
+
         # Luz Ambiente Global (Ilumina todas as faces minimamente)
-        self.ia = [0.1, 0.1, 0.1] # Cinza escuro fraco
+        self.ia = [0.1, 0.1, 0.1]  # Cinza escuro fraco
 
         # --- Viewport (Dimensões da Tela/Janela do SO) ---
-        self.viewport = {
-            'x_min': 0, 'y_min': 0,
-            'x_max': width, 'y_max': height
-        }
+        self.viewport = {"x_min": 0, "y_min": 0, "x_max": width, "y_max": height}
         self.width = width
         self.height = height
 
@@ -516,10 +458,12 @@ class Cena:
         # Uma entrada para cada pixel
         # Inicializa tudo com preto (0,0,0)
         self.color_buffer = [[(0, 0, 0) for _ in range(height)] for _ in range(width)]
-        
+
         # DepthBuffer (Z-Buffer): Matriz width x height guardando floats
         # Inicializa com infinito positivo (qualquer objeto será menor que infinito)
-        self.depth_buffer = [[float('inf') for _ in range(height)] for _ in range(width)]
+        self.depth_buffer = [
+            [float("inf") for _ in range(height)] for _ in range(width)
+        ]
 
     def adicionar_objeto(self, cubo):
         self.objetos.append(cubo)
@@ -535,10 +479,73 @@ class Cena:
         # Pinta fundo de preto e Z-buffer de infinito
         for x in range(self.width):
             for y in range(self.height):
-                self.color_buffer[x][y] =[0, 0, 0] # Cor de fundo
-                self.depth_buffer[x][y] = float('inf')
+                self.color_buffer[x][y] = [0, 0, 0]  # Cor de fundo
+                self.depth_buffer[x][y] = float("inf")
+
+    def _rasterizar_face(
+        self, vertices_tela, shader_mode, cor_flat=None, material=None
+    ):
+        """
+        shader_mode: 1 = Flat (Constante); 2 = Phong
+        cor_flat: Tupla (r, g, b) já calculada (para o Flat)
+        material: Objeto com ka, kd, ks (para o Phong)
+        """
+
+        # Encontrar limites em Y
+        y_min = int(min(v.y for v in vertices_tela))
+        y_max = int(min(v.y for v in vertices_tela))
+
+        # Clipagem básica da tela em Y
+        y_min = max(0, y_min)
+        y_min = min(self.height, y_max)
+
+        # Tabela de arestas (ET)
+        et = {y: [] for y in range(y_min, y_max)}
+        n = len(vertices_tela)
+
+        for i in range(n):
+            p1 = vertices_tela[i]
+            p2 = vertices_tela[(i + 1) % n]
+
+            # Ordenar p1 (menor Y) -> p2 (maior Y)
+            if p1.y > p2.y:
+                p1, p2 = p2, p1
+
+            dy = p2.y - p1.y
+            if dy == 0:
+                continue  # Ignora arestas horizontais
+
+            dx_dy = (p2.x - p1.x) / dy
+            dz_dy = (p2.z - p1.z) / dy
+
+            # Dados básicos da aresta
+            aresta = {
+                "ymax": p2.y,
+                "x": p1.x,
+                "dx_dy": dx_dy,
+                "z": p1.z,
+                "dz_dy": dz_dy,
+            }
+
+            # Para o Phong, interpolamos as normais
+            if shader_mode == 2:
+                dnx_dy = (p2.normal[0] - p1.normal[0]) / dy
+                dny_dy = (p2.normal[1] - p1.normal[1]) / dy
+                dnz_dy = (p2.normal[2] - p1.normal[2]) / dy
+
+                aresta.update(
+                    {
+                        "nx": p1.normal[0],
+                        "dnx_dy": dnx_dy,
+                        "ny": p1.normal[1],
+                        "dny_dy": dny_dy,
+                        "nz": p1.normal[2],
+                        "dnz_dy": dnz_dy,
+                    }
+                )
 
     def renderizar(self):
+
         # Aqui entrará o pipeline principal:
         # 1. Limpar Buffers
         self.limpar_buffers()

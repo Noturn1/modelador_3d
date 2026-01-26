@@ -1,10 +1,34 @@
 import math
 
+class VerticeTela:
+    """
+    Representa um vértice já projetado no espaço de tela (Screen Space).
+    Armazena x, y (inteiros para pixel), z (para buffer), cor e normal (para iluminação).
+    """
+
+    def __init__(self, x, y, z, cor=None, normal=None):
+        self.x = x
+        self.y = y
+        self.z = z  # Profundidade
+        self.cor = cor  # Tupla (r, g, b) para Objeto cor
+        self.normal = normal  # Tupla (nx, ny, nz) para Phong
 
 class Vector:
 
 #Classe para operações de vetor/ponto (x, y, z)
 #staticmethod permite chamar o metodo sem precisar incializar a classe
+
+    @staticmethod
+    def norm(V):
+        # Calcula a soma dos quadrados dos componentes
+        soma_quadrados = 0.0
+        for componente in V:
+            soma_quadrados += componente**2
+
+        # Retorna a raiz quadrada da soma
+        return math.sqrt(soma_quadrados)
+
+
     @staticmethod   
     def create_vector(A, B):
         Vx = B[0] - A[0]
@@ -430,11 +454,16 @@ class Camera:
     
 
 
-    def __init__(self, vrp, P, Y, u_max, u_min, v_max, v_min, DP, near, far,
-                 x_min, x_max, y_min, y_max, Vres, Hres):
+    def __init__(self, vrp, prp, vpn, vup, P, Y, u_max, u_min, v_max, v_min, DP, near, far, Vres, Hres):
         
         self.vrp = [vrp[0], vrp[1], vrp[2]]
+        self.vpn = [vpn[0], vpn[1], vpn[2]]
+        self.vup = [vup[0], vup[1], vpn[2]]
+
+        self.prp = [prp[0], prp[1], prp[2]]
+
         self.N = Vector.create_vector(vrp, P)
+        
         self.Y = [Y[0], Y[1], Y[2]]
 
         self.u, self.v, self.n = self.cal_view_spec()
@@ -442,12 +471,6 @@ class Camera:
         # Distância focal (d) 
         self.DP = DP
         
-        # Janela 
-        # Define a abertura da lente (Zoom)
-        # u_min, u_max, v_min, v_max
-        self.viewport = {"x_min" : x_min, "x_max" : x_max,
-                         "y_min" : y_min, "y_max" : y_max}      
-
         self.z_min = near/far
         self.z_max = 1
         self.Vres = Vres
@@ -524,8 +547,10 @@ class Cena:
         self.camera = None    # Instância de Camera
         self.height = height
         self.width = width
-        self.obejetos = []
         
+
+        self.viewport = {"x_min": 0, "y_min": 0, "x_max": width, "y_max": height}
+
         # Luz Ambiente Global (Ilumina todas as faces minimamente)
         self.ia = [0.1, 0.1, 0.1] # Cinza escuro fraco
 
@@ -555,32 +580,7 @@ class Cena:
             for y in range(self.height):
                 self.color_buffer[x][y] =[0, 0, 0] # Cor de fundo
                 self.depth_buffer[x][y] = float('inf')
-
-    def recorteWA(face_ndc):
-        #algoritmo de recorte Weiler-Atherton
-        # face_ndc é uma instância da classe RenderPoligon
-        # vertices_face_ndc é uma lista com 4 pontos [(x0,y0), (x1,y1), (x2,y2), (x3,y3)]
-        
-        # 1. Definir a janela de recorte NDC (-1 a 1)
-        janela_x_min = Camera.viewport["x_min"]
-        janela_x_max = Camera.viewport["x_max"]
-        janela_y_min = Camera.viewport["y_min"]
-        janela_y_max = Camera.viewport["y_max"]
-
-        v0 = VerticeWA(janela_x_min, janela_y_min)
-        v1 = VerticeWA(janela_x_max, janela_y_min)
-        v2 = VerticeWA(janela_x_max, janela_y_max)
-        v3 = VerticeWA(janela_x_min, janela_y_max)
-
-        # 2. Executar o algoritmo de Weiler-Atherton
-        
-        # O algoritmo retorna uma lista de polígonos visíveis.
-        # Exemplo: um pentágono resultante de um corte de quina.
-        # Retorno: [ [(x1,y1), (x2,y2), (x3,y3), (x4,y4), (x5,y5)] ]
-        print()           
-
-
-
+      
     @staticmethod
     def inserir_vertice_ordenado(p_inicio, p_fim, novo_vertice):
         atual = p_inicio
@@ -622,10 +622,10 @@ class Cena:
 
     def recorteWA(self, vertices_face_tela):
         # passo 1: definir a janela de recorte
-        xmin = self.camera.viewport["x_min"]
-        xmax = self.camera.viewport["x_max"]
-        ymin = self.camera.viewport["y_min"]
-        ymax = self.camera.viewport["y_max"]
+        xmin = self.viewport["x_min"]
+        xmax = self.viewport["x_max"]
+        ymin = self.viewport["y_min"]
+        ymax = self.viewport["y_max"]
         
         # cria os vértices da janela no sentido horário
         janela = [
@@ -719,10 +719,301 @@ class Cena:
         return poligonos_recortados
 
 
-    def renderizar(self, cubos, camera):
-        # Aqui entrará o pipeline principal:
-        # 1. Limpar Buffers
-        self.limpar_buffers()
-        # 2. Calcular matrizes
-        # 3. Para cada objeto -> Rasterizar
-        pass
+    def _rasterizar_face(
+        self, vertices_tela, shader_mode, cor_flat=None, material=None
+    ):
+        """
+        shader_mode: 1 = Flat (Constante); 2 = Phong
+        cor_flat: Tupla (r, g, b) já calculada (para o Flat)
+        material: Objeto com ka, kd, ks (para o Phong)
+        """
+
+        # 1. Encontrar limites em Y
+        y_min = int(min(v.y for v in vertices_tela))
+        y_max = int(max(v.y for v in vertices_tela))
+
+        # Clipagem básica da tela em Y
+        y_min = max(0, y_min)
+        y_min = min(self.height, y_max)
+
+        # Tabela de arestas (ET)
+        et = {y: [] for y in range(y_min, y_max)}
+        n = len(vertices_tela)
+
+        for i in range(n):
+            p1 = vertices_tela[i]
+            p2 = vertices_tela[(i + 1) % n]
+
+            # Ordenar p1 (menor Y) -> p2 (maior Y)
+            if p1.y > p2.y:
+                p1, p2 = p2, p1
+
+            dy = p2.y - p1.y
+            if dy == 0:
+                continue  # Ignora arestas horizontais
+
+            dx_dy = (p2.x - p1.x) / dy
+            dz_dy = (p2.z - p1.z) / dy
+
+            # Dados básicos da aresta
+            aresta = {
+                "ymax": p2.y,
+                "x": p1.x,
+                "dx_dy": dx_dy,
+                "z": p1.z,
+                "dz_dy": dz_dy,
+            }
+
+            # Para o Phong, interpolamos as normais
+            if shader_mode == 2:
+                dnx_dy = (p2.normal[0] - p1.normal[0]) / dy
+                dny_dy = (p2.normal[1] - p1.normal[1]) / dy
+                dnz_dy = (p2.normal[2] - p1.normal[2]) / dy
+
+                aresta.update(
+                    {
+                        "nx": p1.normal[0],
+                        "dnx_dy": dnx_dy,
+                        "ny": p1.normal[1],
+                        "dny_dy": dny_dy,
+                        "nz": p1.normal[2],
+                        "dnz_dy": dnz_dy,
+                    }
+                )
+
+            start_y = int(p1.y)
+            if start_y < y_max:
+                if start_y < 0:
+                    start_y = 0  # Clipagem simples superior
+                if start_y in et:
+                    et[start_y].append(aresta)
+
+        # Lista de arestas ativas (AET)
+        aet = []
+
+        # 2. Varredura das scanlines
+        for y in range(y_min, y_max):
+            if y in et:
+                aet.extend(et[y])
+
+            # Remove as arestas concluídas
+            aet = [e for e in aet if y < e["ymax"]]
+
+            # Ordena por X
+            aet.sort(key=lambda k: k["x"])
+
+            # Preenche spans (pares de arestas)
+            for i in range(0, len(aet), 2):
+                if i + 1 >= len(aet):
+                    break
+                e1, e2 = aet[i], aet[i + 1]
+
+                x_start = int(math.ceil(e1["x"]))
+                x_end = int(math.ceil(e2["x"]))
+
+                # Clipagem horizontal de X
+                x_start = max(0, x_start)
+                x_end = min(self.width, x_end)
+
+                if x_end <= x_start:
+                    continue
+
+                span = e2["x"] - e1["x"]
+                if span == 0:
+                    span = 1
+
+                # Setup de interpolação do Z
+                z = e1["z"]
+                dz_dx = (e2["z"] - e1["z"]) / span
+
+                # Setup de interpolação das normais (Phong)
+                if shader_mode == 2:
+                    nx, ny, nz = e1["nx"], e1["ny"], e1["nz"]
+                    dnx_dx = (e2["nx"] - e1["nx"]) / span
+                    dny_dx = (e2["ny"] - e1["ny"]) / span
+                    dnz_dx = (e2["nz"] - e1["nz"]) / span
+
+                # 3. Loop dos Pixels (X)
+                for x in range(x_start, x_end):
+                    # Teste de Z-Buffer
+                    if z < self.depth_buffer[x][y]:
+                        self.depth_buffer[x][y] = z  # Atualiza Z
+
+                        cor_final = (0, 0, 0)
+
+                        if shader_mode == 1:
+                            cor_final = cor_flat
+
+                        elif shader_mode == 2:
+                            # Renormalizar vetor interpolado
+                            mod = math.sqrt(nx**2 + ny**2 + nz**2)
+                            if mod == 0:
+                                mod = 1
+                            N = (nx / mod, ny / mod, nz / mod)
+
+                            # Calcula iluminação por pixel
+                            cor_final = self._calcular_phong_pixel(N, material)
+
+                        self.color_buffer[x][y] = cor_final
+
+                    # Incrementa Z e as normais
+                    z += dz_dx
+                    if shader_mode == 2:
+                        nx += dnx_dx
+                        ny += dny_dx
+                        nz += dnz_dx
+
+            for e in aet:
+                e["x"] += e["dx_dy"]
+                e["z"] += e["dz_dy"]
+                if shader_mode == 2:
+                    e["nx"] += e["dnx_dy"]
+                    e["ny"] += e["dny_dy"]
+                    e["nz"] += e["dnz_dy"]
+
+    def _calcular_phong_pixel(self, N, material):
+        # N -> vetor normal interpolado
+
+        # 1. Componente ambiente (Ia * Ka)
+        # Inicia com cor ambiente global
+        r = self.ia[0] * material.ka[0]
+        g = self.ia[1] * material.ka[1]
+        b = self.ia[2] * material.ka[2]
+
+        # Posição do observador (assumindo que está em +Z infinito para simplificar)
+        S = (0, 0, 1)
+
+        for luz in self.luzes:
+            # Recupera direção da luz (considerando como direcional)
+            # L é vetor contrário da direção da luz
+            lx, ly, lz = (
+                -luz.posicao_ou_direcao[0],
+                -luz.posicao_ou_direcao[1],
+                -luz.posicao_ou_direcao[2],
+            )
+
+            # Normaliza L
+            mod_l = math.sqrt(lx**2 + ly**2 + lz**2)
+            if mod_l == 0:
+                mod_l = 1
+
+            L = (lx / mod_l, ly / mod_l, lz / mod_l)
+
+            # 2. Componente difusa (Id * Kd * (N * L))
+            dot_nl = max(0, N[0] * L[0] + N[1] * L[1] + N[2] * L[2])
+
+            r += luz.id[0] * material.kd[0] * dot_nl
+            g += luz.id[1] * material.kd[1] * dot_nl
+            b += luz.id[2] * material.kd[2] * dot_nl
+
+            # 3. Componente especular simplificado (Is * Ks * (N * H)^n)
+            if dot_nl > 0:  # Só existe especular se a luz atinge a face
+
+                # Estamos calculando o H dentro do loop para deixar a possibilidade de usar
+                # iluminação pontual ou câmeras móveis no projeto e a diferença de performance é mínima
+
+                # Cálculo do vetor H (Halfway/Bissetriz)
+                # H = (L + S) / |L + S|
+                hx = L[0] + S[0]
+                hy = L[1] + S[1]
+                hz = L[2] + S[2]
+
+                mod_h = math.sqrt(hx**2 + hy**2 + hz**2)
+                if mod_h == 0:
+                    mod_h = 1
+                H = (hx / mod_h, hy / mod_h, hz / mod_h)
+
+                # Produto escalar (N * H)
+                dot_nh = max(0, N[0] * H[0] + N[1] * H[1] + N[2] * H[2])
+
+                # Expoente especular (brilho)
+                spec = dot_nh ** material.ks[3]
+
+                r += luz.i_spec[0] * material.ks[0] * spec
+                g += luz.i_spec[1] * material.ks[1] * spec
+                b += luz.i_spec[2] * material.ks[2] * spec
+
+        # Clamp para garantir RGB entre 0 e 255
+        r = min(255, max(0, int(r * 255)))
+        g = min(255, max(0, int(g * 255)))
+        b = min(255, max(0, int(b * 255)))
+
+        return (r, g, b)
+
+
+    def renderizar(self):
+            self.limpar_buffers()
+
+            if not self.camera:
+                return
+
+            # 1. PEGAR MATRIZES DE PROJEÇÃO E TELA (Usando o Pipeline do logica.py)
+            mat_A = Pipeline.get_matrix_A(self.camera.vrp)
+            mat_B = Pipeline.get_matrix_B(self.camera.u, self.camera.v, self.camera.n)
+            mat_C = Pipeline.get_matrix_C(self.camera.Cu, self.camera.Cv, self.camera.DP)
+            mat_D = Pipeline.get_matrix_D(self.camera.Su, self.camera.Sv, self.camera.DP, self.camera.far)
+            mat_P = Pipeline.get_matrix_P(self.camera.far, self.camera.near)
+            
+            mat_J = Pipeline.get_matrix_J()
+            mat_K = Pipeline.get_matrix_K()
+            mat_L = Pipeline.get_matrix_L(self.viewport["x_max"], self.viewport["x_min"], self.viewport["y_max"], self.viewport["y_min"], self.camera.z_max, self.camera.z_min)
+            mat_M = Pipeline.get_matrix_M()
+
+            # Composição: Mundo -> Clip Space -> Tela
+            m_view = Mat4.mul(mat_B, mat_A)
+            m_proj = Mat4.mul(mat_P, Mat4.mul(mat_D, mat_C))
+            m_total_proj = Mat4.mul(m_proj, m_view) 
+            m_screen = Mat4.mul(mat_M, Mat4.mul(mat_L, Mat4.mul(mat_K, mat_J)))
+
+            # 2. PROCESSAR OBJETOS
+            for obj in self.objetos:
+                for face in obj.lista_faces:
+
+                    # --- BACK-FACE CULLING (Remoção de Faces Ocultas) ---
+                    v0 = obj.vertices_modelo_transformados[face.indices[0]]
+                    vx = self.camera.vrp[0] - v0[0]
+                    vy = self.camera.vrp[1] - v0[1]
+                    vz = self.camera.vrp[2] - v0[2]
+                    
+                    # Produto Escalar (Normal da Face . Vetor Visão)
+                    dot_vis = (face.normal[0] * vx) + (face.normal[1] * vy) + (face.normal[2] * vz)
+
+                    # Se a face estiver visível:
+                    if dot_vis > 0:
+                        
+                        # A. PROJEÇÃO (Mundo -> Tela)
+                        vertices_tela_brutos = []
+                        for idx in face.indices:
+                            v_mundo = obj.vertices_modelo_transformados[idx]
+                            v_clip = Vector.mul(m_total_proj, v_mundo)
+                            
+                            w = v_clip[3] if v_clip[3] != 0 else 0.0001
+                            v_ndc = [v_clip[0]/w, v_clip[1]/w, v_clip[2]/w, 1.0]
+                            v_tela = Vector.mul(m_screen, v_ndc)
+                            vertices_tela_brutos.append((v_tela[0], v_tela[1], v_tela[2]))
+
+                        # B. RECORTE (WEILER-ATHERTON)
+                        # Recebe os 4 pontos e devolve N polígonos recortados
+                        poligonos_recortados = self.recorteWA(vertices_tela_brutos)
+
+                        # C. PREPARAÇÃO PARA RASTERIZAR
+                        modo_shader = 2  # 1 = Flat, 2 = Phong
+
+                        for poligono in poligonos_recortados:
+                            # O recorteWA devolve pontos 2D (x,y). Precisamos trazer o Z para o buffer.
+                            # Assumimos o Z do primeiro vértice para a face 2D recortada.
+                            z_base = vertices_tela_brutos[0][2] 
+                            
+                            vertices_prontos = []
+                            for pt in poligono:
+                                vertices_prontos.append(VerticeTela(pt[0], pt[1], z_base, normal=face.normal))
+
+                            # D. ILUMINAÇÃO (Cálculo da Cor)
+                            cor_flat = (0, 0, 0)
+                            if modo_shader == 1 and len(self.luzes) > 0:
+                                cor_flat = self._calcular_phong_pixel(face.normal, obj)
+                            elif modo_shader == 1:
+                                cor_flat = (100, 100, 100) # Sem luz
+
+                            # E. RASTERIZAÇÃO (SCANLINE)
+                            self._rasterizar_face(vertices_prontos, modo_shader, cor_flat, obj)

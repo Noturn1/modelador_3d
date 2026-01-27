@@ -552,7 +552,7 @@ class Cena:
         self.viewport = {"x_min": 0, "y_min": 0, "x_max": width, "y_max": height}
 
         # Luz Ambiente Global (Ilumina todas as faces minimamente)
-        self.ia = [0.1, 0.1, 0.1] # Cinza escuro fraco
+        self.ia = [1, 1, 1] # Cinza escuro fraco
 
         # --- Buffers de Rasterização (Alocação de Memória) ---
         # ColorBuffer: Matriz width x height guardando tuplas (R, G, B)
@@ -734,7 +734,7 @@ class Cena:
 
         # Clipagem básica da tela em Y
         y_min = max(0, y_min)
-        y_min = min(self.height, y_max)
+        y_max = min(self.height, y_max)
 
         # Tabela de arestas (ET)
         et = {y: [] for y in range(y_min, y_max)}

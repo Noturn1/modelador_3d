@@ -1,67 +1,103 @@
-from src.logica import Cena, Cubo, Camera, Luz, Mat4
+# Se o arquivo logica.py estiver na mesma pasta, use:
+from src import Cena, Cubo, Camera, Luz, Mat4
+from PIL import Image
 
-def testar_pipeline_grafico():
-    print("Iniciando teste do Pipeline Gráfico...")
+def executar_teste_renderizacao():
+    print("=== Iniciando Teste de Renderização 3D ===")
 
-    # 1. Configuração da Cena (Resolução 100x100 para teste rápido)
+    # 1. Configuração da Tela (100x100)
     largura, altura = 100, 100
     cena = Cena(altura, largura)
 
-    # 2. Criar um Cubo
-    # v0 (pos), lado, ka, kd, ks (cor branca com brilho)
-    ka = [0.2, 0.2, 0.2]
-    kd = [0.8, 0.8, 0.8]
-    ks = [1.0, 1.0, 1.0, 50] # RGB + Brilho (n=50)
-    cubo = Cubo([0, 0, 0], 30, ka, kd, ks)
+    # 2. Criar um Cubo Menor (Lado 10) para evitar clipping excessivo
+    # v0 (origem), lado, ka, kd, ks
+    #  ka, kd, ks = [0.2, 0.2, 0.2], [0.7, 0.7, 0.7], [1.0, 1.0, 1.0, 30]
     
-    # Aplicar uma rotação para vermos mais de uma face
-    mat_rot = Mat4.rotate_y(45)
-    mat_rot = Mat4.mul(Mat4.rotate_x(30), mat_rot)
-    cubo.aplicar_transformacao(mat_rot)
+    # Centralizamos o cubo criando-o em [-5, -5, -5]
+    lado_cubo = 20
+    cubo = Cubo([0, 0, 0], lado_cubo, [0.2, 0.2, 0.2], [0.8, 0.8, 0.8], [1.0, 1.0, 1.0, 50])
+
+    
+    # Aplicar rotação para ver as faces superior, frontal e lateral
+    mat_transform = Mat4.mul(Mat4.rotate_x(45), Mat4.rotate_y(45))
+    mat_transform = Mat4.mul(mat_transform,Mat4.trans(0, 0, 0))
+    cubo.aplicar_transformacao(mat_transform)
     
     cena.adicionar_objeto(cubo)
 
-    # 3. Configurar a Câmera
-    # vrp, prp, vpn, vup, P (alvo), Y (direção up), janela, dist_focal, planos_corte, resolução
     cam = Camera(
-        vrp=[0, 0, 50],   # Câmera afastada no eixo Z
+        vrp=[-40, -40, -40],  # Ponto de observação (octante negativo)
         prp=[0, 0, 0],
         vpn=[0, 0, 1],
         vup=[0, 1, 0],
-        P=[0, 0, 0],      # Olhando para a origem
+        P=[10, 10, 10],       # Alvo: Centro do cubo para mantê-lo centralizado
         Y=[0, 1, 0],
-        u_min=-10, u_max=10, v_min=-10, v_max=10,
-        DP=20,            # Distância Focal
-        near=1, far=100,
+        # Janela apertada (-15 a 15) para o cubo de lado 20 parecer "grande"
+        u_min=-15, u_max=15, 
+        v_min=-15, v_max=15, 
+        DP=100,                # Distância Focal (Zoom)
+        near=1, far=200,
         Vres=altura, Hres=largura
     )
     cena.definir_camera(cam)
-
-    # 4. Adicionar uma Luz Direcional
-    # Tipo, Direção, Intensidade Specular, Intensidade Difusa
-    luz = Luz(Luz.DIRECIONAL, [1, -1, -1], [1, 1, 1], [1, 1, 1])
+    # 4. Adicionar Luz para testar o Shading de Phong
+    luz = Luz(Luz.DIRECIONAL, [1, 1, 1], [1, 1, 1], [1, 1, 1])
     cena.adicionar_luz(luz)
-
-    # 5. Executar Renderização
-    print("Executando renderizar()...")
+    # 5. Renderizar
+    print("Renderizando frame...")
     cena.renderizar()
 
-    # 6. Verificação de Resultados
-    pixels_desenhados = 0
+    # 6. Analisar Color Buffer
+    pixels_coloridos = 0
+    cores_encontradas = set()
+
     for x in range(largura):
         for y in range(altura):
-            if cena.color_buffer[x][y] != [0, 0, 0]:
-                pixels_desenhados += 1
+            cor = cena.color_buffer[x][y]
+            if cor != (0, 0, 0) and cor != [0, 0, 0]:
+                pixels_coloridos += 1
+                cores_encontradas.add(cor)
 
-    print("-" * 30)
-    if pixels_desenhados > 0:
-        print(f"SUCESSO: O cubo foi rasterizado!")
-        print(f"Total de pixels coloridos: {pixels_desenhados}")
-        # Exemplo de cor de um pixel central
-        print(f"Cor no centro (50,50): {cena.color_buffer[50][50]}")
+    print("-" * 40)
+    if pixels_coloridos > 0:
+        print(f"SUCESSO! Pixels desenhados: {pixels_coloridos}")
+        print(f"Diferentes tons de cor detectados: {len(cores_encontradas)} (Indica iluminação ativa)")
     else:
-        print("FALHA: Nada foi desenhado (Tela Preta). Verifique a posição da câmera ou o Back-face Culling.")
-    print("-" * 30)
+        print("ERRO: A tela continua preta.")
+        print("Dica: Verifique se você corrigiu a linha 761 do logica.py (y_min vs y_max).")
+    print("-" * 40)
+
+    if pixels_coloridos > 0:
+        print(f"SUCESSO! Pixels desenhados: {pixels_coloridos}")
+        # Chamar a nova função
+        exportar_para_imagem(cena, "cubo_renderizado.png")
+    else:
+        print("FALHA: Nada foi desenhado.")
+
+def exportar_para_imagem(cena, nome_arquivo="resultado.png"):
+    """
+    Converte o color_buffer da Cena em um arquivo de imagem.
+    """
+    # 1. Criar uma nova imagem RGB com as dimensões da cena
+    # O Pillow usa (width, height)
+    img = Image.new("RGB", (cena.width, cena.height))
+    pixels = img.load()
+
+    # 2. Percorrer o buffer e preencher a imagem
+    for x in range(cena.width):
+        for y in range(cena.height):
+            # O color_buffer armazena (r, g, b)
+            cor = cena.color_buffer[x][y]
+            
+            # Garantir que a cor seja uma tupla de inteiros
+            # Invertemos o Y no preenchimento caso a imagem saia de ponta-cabeça
+            pixels[x, (cena.height - 1) - y] = tuple(map(int, cor))
+
+    # 3. Salvar o arquivo
+    img.save(nome_arquivo)
+    print(f"Imagem exportada com sucesso: {nome_arquivo}")
+
+
 
 if __name__ == "__main__":
-    testar_pipeline_grafico()
+    executar_teste_renderizacao()

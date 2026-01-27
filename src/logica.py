@@ -881,7 +881,8 @@ class Cena:
         b = self.ia[2] * material.ka[2]
 
         # Posição do observador (assumindo que está em +Z infinito para simplificar)
-        S = (0, 0, 1)
+        S = self.camera.vrp
+        #S = (0, 0, 1)
 
         for luz in self.luzes:
             # Recupera direção da luz (considerando como direcional)
@@ -945,6 +946,7 @@ class Cena:
             self.limpar_buffers()
 
             if not self.camera:
+                print("Câmera não instânciada")
                 return
 
             # 1. PEGAR MATRIZES DE PROJEÇÃO E TELA (Usando o Pipeline do logica.py)

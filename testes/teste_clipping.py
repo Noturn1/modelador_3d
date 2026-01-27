@@ -3,11 +3,19 @@ from src.logica import Cena, Camera
 # 1. Configurar uma Câmera e Cena "falsas" apenas com os dados da Tela (Viewport)
 # Tela de 800x600
 camera_teste = Camera(
-    vrp=(0,0,0), P=(0,0,-1), Y=(0,1,0),
-    u_max=1, u_min=-1, v_max=1, v_min=-1, DP=1, near=1, far=10,
-    x_min=0, x_max=800, y_min=0, y_max=600, # <-- O que importa para o recorte
+    vrp=(0,0,0), 
+    prp = (0, 0, 0),
+    vpn = (0, 0, 1),
+    vup = (0, 1, 0),
+    P=(0,0,-1), Y=(0,1,0),
+    u_max=1, u_min=-1, v_max=1, v_min=-1, 
+    DP=1, 
+    near=1, 
+    far=10,
     Vres=600, Hres=800
 )
+
+
 
 cena = Cena(height=600, width=800)
 cena.definir_camera(camera_teste)

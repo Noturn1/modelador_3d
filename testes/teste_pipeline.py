@@ -1,4 +1,4 @@
-from src.logica import Cubo, Camera, Pipeline, Mat4, Vector
+from src.logica import Cubo, Camera, Pipeline, Mat4, Vector, Cena
 
 # =========================================================
 # 1. Criar cubo em MODEL SPACE
@@ -21,23 +21,20 @@ cubo.print_vertices()
 
 camera = Camera(
     vrp=(15, 0, 15),     # View Reference Point (posição da câmera)
-    P=(cubo.centroide),        # Ponto observado
+    prp = (0, 0, 0),
+    vpn = (0, 0, 1),
+    vup = (0, 1, 0),
+    P=(0,0,0),        # Ponto observado
     Y=(0, 1, 0),        # View-Up
-    u_max=400,
-    u_min=-400,
-    v_max=300,
-    v_min=-300,
+    u_max=400, u_min=-400, v_max=300, v_min=-300,
     DP=20,               # distância focal
     near=10,
     far=100,
-    x_min=0,
-    x_max=800,
-    y_min=0,
-    y_max=600,
-    Vres=600,
-    Hres=900
+    Vres=600, Hres=900
 )
 
+cena = Cena(600, 800)
+cena.definir_camera(camera)
 u, v, n = camera.get_view_spec()
 
 print("\n===== VIEW SPEC =====")
@@ -62,10 +59,10 @@ P = Pipeline.get_matrix_P(camera.far, camera.near)
 J = Pipeline.get_matrix_J()
 K = Pipeline.get_matrix_K()
 L = Pipeline.get_matrix_L(
-    camera.viewport["x_max"],
-    camera.viewport["x_min"],   
-    camera.viewport["y_max"],
-    camera.viewport["y_min"],
+    cena.viewport["x_max"],
+    cena.viewport["x_min"],   
+    cena.viewport["y_max"],
+    cena.viewport["y_min"],
     camera.z_max,
     camera.z_min
 )

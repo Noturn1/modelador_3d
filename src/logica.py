@@ -482,8 +482,8 @@ class Camera:
         
         self.Cu = (self.window["u_max"] + self.window["u_min"]) / 2
         self.Cv = (self.window["v_max"] + self.window["v_min"]) / 2
-        self.Su = (self.window["u_max"] - self.window["u_min"])
-        self.Sv = (self.window["v_max"] - self.window["v_min"])
+        self.Su = (self.window["u_max"] - self.window["u_min"]) / 2
+        self.Sv = (self.window["v_max"] - self.window["v_min"]) / 2
         self.AR = self.Su/self.Sv
         self.PAR = self.AR*(self.Vres/self.Hres)
 
@@ -493,10 +493,11 @@ class Camera:
 
 class VerticeWA:
     # Estrutura auxiliar para as listas duplamente encadeadas do Weiler-Atherton
-    def __init__(self, x, y, z=0):
+    def __init__(self, x, y, z=0, normal = None):
         self.x = x
         self.y = y
         self.z = z
+        self.normal = normal
         self.is_intersecao = False
         self.is_entrada = False # True = Entrando no Clip, False = Saindo
         self.visitado = False
@@ -552,7 +553,7 @@ class Cena:
         self.viewport = {"x_min": 0, "y_min": 0, "x_max": width, "y_max": height}
 
         # Luz Ambiente Global (Ilumina todas as faces minimamente)
-        self.ia = [1, 1, 1] # Cinza escuro fraco
+        self.ia = [0.1, 0.1, 0.1] # Cinza escuro fraco
 
         # --- Buffers de Rasterização (Alocação de Memória) ---
         # ColorBuffer: Matriz width x height guardando tuplas (R, G, B)
@@ -615,13 +616,13 @@ class Cena:
         if 0.0 <= t <= 1.0 and 0.0 <= u <= 1.0:
             int_x = p1.x + t * (p2.x - p1.x)
             int_y = p1.y + t * (p2.y - p1.y)
-            return (int_x, int_y, t)
-
-        return None
-
+            # INTERPOLAÇÃO DE Z:
+            int_z = p1.z + t * (p2.z - p1.z)
+            return (int_x, int_y, int_z, t) # Retorne o Z também
 
     def recorteWA(self, vertices_face_tela):
         # passo 1: definir a janela de recorte
+        z_padrao = vertices_face_tela[0][2]
         xmin = self.viewport["x_min"]
         xmax = self.viewport["x_max"]
         ymin = self.viewport["y_min"]
@@ -629,10 +630,10 @@ class Cena:
         
         # cria os vértices da janela no sentido horário
         janela = [
-            VerticeWA(xmin, ymin), # v0: Fundo-Esq
-            VerticeWA(xmax, ymin), # v1: Fundo-Dir
-            VerticeWA(xmax, ymax), # v2: Topo-Dir
-            VerticeWA(xmin, ymax)  # v3: Topo-Esq
+            VerticeWA(xmin, ymin, z_padrao), # v0: Fundo-Esq
+            VerticeWA(xmax, ymin, z_padrao), # v1: Fundo-Dir
+            VerticeWA(xmax, ymax, z_padrao), # v2: Topo-Dir
+            VerticeWA(xmin, ymax, z_padrao)  # v3: Topo-Esq
         ]
         # encadear os vértices da janela
         for i in range(4):
@@ -658,16 +659,16 @@ class Cena:
                 intersecao = self.calcular_intersecao(p1, p2, p3, p4)
                 
                 if intersecao:
-                    ix, iy, t = intersecao
+                    ix, iy, iz, t = intersecao
                     
                     # 1. Cria o vértice para a lista da fave
-                    int_sujeito = VerticeWA(ix, iy)
+                    int_sujeito = VerticeWA(ix, iy, iz)
                     int_sujeito.is_intersecao = True
                     int_sujeito.alpha = t # 't' da reta da face
                     
                     # 2. Cria o vértice (gêmeo) para a lista da Janela
                     u = ((ix - p3.x) * (p4.x - p3.x) + (iy - p3.y) * (p4.y - p3.y)) / ((p4.x - p3.x)**2 + (p4.y - p3.y)**2)
-                    int_janela = VerticeWA(ix, iy)
+                    int_janela = VerticeWA(ix, iy, iz)
                     int_janela.is_intersecao = True
                     int_janela.alpha = u # 'u' da reta da janela
 
@@ -695,7 +696,8 @@ class Cena:
                 
                 while not p_nav.visitado:
                     p_nav.visitado = True
-                    novo_poligono.append((p_nav.x, p_nav.y))
+                    # Na linha 680 de logica.py
+                    novo_poligono.append((p_nav.x, p_nav.y, p_nav.z))
                     
                     if p_nav.is_intersecao:
                         p_nav.proximo_clip.visitado = True # Marca o gêmeo como visitado
@@ -712,12 +714,11 @@ class Cena:
 
         # CASO ESPECIAL: O polígono está 100% dentro da tela
         if len(poligonos_recortados) == 0:
-            if (xmin <= sujeito[0].x <= xmax) and (ymin <= sujeito[0].y <= ymax):
-                poligono_2d = [(v[0], v[1]) for v in vertices_face_tela]
-                return [poligono_2d] 
-
-        return poligonos_recortados
-
+          if (xmin <= sujeito[0].x <= xmax) and (ymin <= sujeito[0].y <= ymax):
+            # MUDANÇA: Inclua o v[2] (Z) na tupla de retorno
+            poligono_3d = [(v[0], v[1], v[2]) for v in vertices_face_tela]
+            return [poligono_3d]
+        return []
 
     def _rasterizar_face(
         self, vertices_tela, shader_mode, cor_flat=None, material=None
@@ -755,14 +756,25 @@ class Cena:
             dx_dy = (p2.x - p1.x) / dy
             dz_dy = (p2.z - p1.z) / dy
 
-            # Dados básicos da aresta
+            start_y = int(math.ceil(p1.y)) # Próxima scanline válida
+            offset_y = start_y - p1.y
+
             aresta = {
-                "ymax": p2.y,
-                "x": p1.x,
+                "ymax": int(math.ceil(p2.y)),
+                "x": p1.x + (offset_y * dx_dy), # Ajuste sub-pixel
                 "dx_dy": dx_dy,
-                "z": p1.z,
+                "z": p1.z + (offset_y * dz_dy), # Ajuste sub-pixel
                 "dz_dy": dz_dy,
             }
+
+            # Dados básicos da aresta
+            #aresta = {
+            #    "ymax": p2.y,
+            #    "x": p1.x,
+            #    "dx_dy": dx_dy,
+            #    "z": p1.z,
+            #    "dz_dy": dz_dy,
+            #}
 
             # Para o Phong, interpolamos as normais
             if shader_mode == 2:
@@ -781,7 +793,7 @@ class Cena:
                     }
                 )
 
-            start_y = int(p1.y)
+            #start_y = int(p1.y)
             if start_y < y_max:
                 if start_y < 0:
                     start_y = 0  # Clipagem simples superior
@@ -811,6 +823,9 @@ class Cena:
                 x_start = int(math.ceil(e1["x"]))
                 x_end = int(math.ceil(e2["x"]))
 
+             #   x_start = int(e1["x"] + 0.5) 
+              #  x_end = int(e2["x"] + 0.5) 
+
                 # Clipagem horizontal de X
                 x_start = max(0, x_start)
                 x_end = min(self.width, x_end)
@@ -836,7 +851,8 @@ class Cena:
                 # 3. Loop dos Pixels (X)
                 for x in range(x_start, x_end):
                     # Teste de Z-Buffer
-                    if z < self.depth_buffer[x][y]:
+                    #if z < self.depth_buffer[x][y]:
+                    if z <= self.depth_buffer[x][y] + 1e-6:
                         self.depth_buffer[x][y] = z  # Atualiza Z
 
                         cor_final = (0, 0, 0)
@@ -881,8 +897,8 @@ class Cena:
         b = self.ia[2] * material.ka[2]
 
         # Posição do observador (assumindo que está em +Z infinito para simplificar)
-        S = self.camera.vrp
-        #S = (0, 0, 1)
+        #S = self.camera.vrp
+        S = (0, 0, 1)
 
         for luz in self.luzes:
             # Recupera direção da luz (considerando como direcional)
@@ -999,7 +1015,7 @@ class Cena:
                         poligonos_recortados = self.recorteWA(vertices_tela_brutos)
 
                         # C. PREPARAÇÃO PARA RASTERIZAR
-                        modo_shader = 2  # 1 = Flat, 2 = Phong
+                        modo_shader = 2 # 1 = Flat, 2 = Phong
 
                         for poligono in poligonos_recortados:
                             # O recorteWA devolve pontos 2D (x,y). Precisamos trazer o Z para o buffer.
@@ -1008,7 +1024,7 @@ class Cena:
                             
                             vertices_prontos = []
                             for pt in poligono:
-                                vertices_prontos.append(VerticeTela(pt[0], pt[1], z_base, normal=face.normal))
+                                vertices_prontos.append(VerticeTela(pt[0], pt[1], pt[2], normal=face.normal))
 
                             # D. ILUMINAÇÃO (Cálculo da Cor)
                             cor_flat = (0, 0, 0)

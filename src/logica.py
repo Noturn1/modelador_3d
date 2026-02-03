@@ -1,5 +1,6 @@
 import math
 
+
 class VerticeTela:
     """
     Representa um vértice já projetado no espaço de tela (Screen Space).
@@ -13,10 +14,11 @@ class VerticeTela:
         self.cor = cor  # Tupla (r, g, b) para Objeto cor
         self.normal = normal  # Tupla (nx, ny, nz) para Phong
 
+
 class Vector:
 
-#Classe para operações de vetor/ponto (x, y, z)
-#staticmethod permite chamar o metodo sem precisar incializar a classe
+    # Classe para operações de vetor/ponto (x, y, z)
+    # staticmethod permite chamar o metodo sem precisar incializar a classe
 
     @staticmethod
     def norm(V):
@@ -28,27 +30,25 @@ class Vector:
         # Retorna a raiz quadrada da soma
         return math.sqrt(soma_quadrados)
 
-
-    @staticmethod   
+    @staticmethod
     def create_vector(A, B):
         Vx = B[0] - A[0]
         Vy = B[1] - A[1]
         Vz = B[2] - A[2]
-        
+
         return [Vx, Vy, Vz]
 
     @staticmethod
     def normalize(V):
-        mag = math.sqrt(V[0]**2 + V[1]**2 + V[2]**2)
-        
+        mag = math.sqrt(V[0] ** 2 + V[1] ** 2 + V[2] ** 2)
+
         if mag == 0:
             return [0, 0, 0]
-        
+
         return [
             V[0] / mag,
             V[1] / mag,
             V[2] / mag,
-            
         ]
 
     @staticmethod
@@ -56,27 +56,26 @@ class Vector:
         # função pra aplicar transformação em um vetor/ponto
         # ponto deve ser uma tupla ou lista (x, y, z, w)
         # O resultado é um novo ponto transformado
-            
+
         res = [0.0, 0.0, 0.0, 0.0]
-            
-        for i in range(4): # Para cada linha da matriz
+
+        for i in range(4):  # Para cada linha da matriz
             soma = 0.0
-            for j in range(4): # Multiplica pela coluna do vetor
+            for j in range(4):  # Multiplica pela coluna do vetor
                 soma += mat[i][j] * ponto[j]
             res[i] = soma
-                
-        return res    
-    
+
+        return res
+
     @staticmethod
     def cross_product(A, B):
-        #função para calcular produto vetorial
-        # recebe dois vetores (x, y, z)    
-        
+        # função para calcular produto vetorial
+        # recebe dois vetores (x, y, z)
+
         Ux = A[0]
         Uy = A[1]
         Uz = A[2]
 
-        
         Vx = B[0]
         Vy = B[1]
         Vz = B[2]
@@ -87,12 +86,11 @@ class Vector:
         Nz = (Ux * Vy) - (Uy * Vx)
 
         return (Nx, Ny, Nz)
-    
-    @staticmethod
-    def dot_product(A,B):
-    # Calcula o produto escalar de dois vetores (x, y, z)
-        return (A[0] * B[0]) + (A[1] * B[1]) + (A[2] * B[2])
 
+    @staticmethod
+    def dot_product(A, B):
+        # Calcula o produto escalar de dois vetores (x, y, z)
+        return (A[0] * B[0]) + (A[1] * B[1]) + (A[2] * B[2])
 
 
 class Pipeline:
@@ -102,161 +100,114 @@ class Pipeline:
     @staticmethod
     def get_matrix_A(Viewpoint):
 
-        return[
+        return [
             [1, 0, 0, -Viewpoint[0]],
             [0, 1, 0, -Viewpoint[1]],
             [0, 0, 1, -Viewpoint[2]],
-            [0, 0, 0, 1           ]
-            ]
-    
+            [0, 0, 0, 1],
+        ]
+
     @staticmethod
-    #recebe vetores (x, y, z) como parâmetro
+    # recebe vetores (x, y, z) como parâmetro
     def get_matrix_B(u, v, n):
 
-        return[
+        return [
             [u[0], u[1], u[2], 0],
             [v[0], v[1], v[2], 0],
             [n[0], n[1], n[2], 0],
-            [0,    0,    0,    1]
+            [0, 0, 0, 1],
         ]
-    
-    @staticmethod 
+
+    @staticmethod
     def get_matrix_C(Cu, Cv, d):
 
-        return[
-            [1, 0, -Cu/d,  0],
-            [0, 1, -Cv/d,  0],
-            [0, 0,  1,     0],
-            [0, 0,  0,     1]
-        ]
+        return [[1, 0, -Cu / d, 0], [0, 1, -Cv / d, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
 
     @staticmethod
     def get_matrix_D(Su, Sv, d, f):
 
         return [
-            [d/(Su*f), 0,        0,   0],
-            [0,        d/(Sv*f), 0,   0],
-            [0,        0,        1/f, 0],
-            [0,        0,        0,   1]
+            [d / (Su * f), 0, 0, 0],
+            [0, d / (Sv * f), 0, 0],
+            [0, 0, 1 / f, 0],
+            [0, 0, 0, 1],
         ]
 
     @staticmethod
     def get_matrix_P(far, near):
 
         return [
-            [1, 0, 0,           0                 ],
-            [0, 1, 0,           0                 ],
-            [0, 0, far/(far - near), (-near)/(far-near)],
-            [0, 0, 1,           0                 ]
-        ]        
-    
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, far / (far - near), (-near) / (far - near)],
+            [0, 0, 1, 0],
+        ]
+
     @staticmethod
     def get_matrix_J():
 
-        return[
-            [1, 0, 0,  0],
-            [0, -1, 0,  0],
-            [0, 0, 1, 0],
-            [0, 0, 0,  1]     
-        ]
-    
+        return [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+
     @staticmethod
     def get_matrix_K():
 
-        return[
-            [0.5, 0,   0, 0.5],
-            [0,   0.5, 0, 0.5],
-            [0,   0,   1, 0  ],
-            [0,   0,   0, 1  ]
-        ]
+        return [[0.5, 0, 0, 0.5], [0, 0.5, 0, 0.5], [0, 0, 1, 0], [0, 0, 0, 1]]
 
     @staticmethod
     def get_matrix_L(x_max, x_min, y_max, y_min, z_max, z_min):
 
-        return[
-            [x_max - x_min, 0,             0,              x_min],
-            [0,             y_max - y_min, 0,              y_min],
-            [0,             0,             z_max - z_min,  z_min],
-            [0,             0,              0,             1    ]
+        return [
+            [x_max - x_min, 0, 0, x_min],
+            [0, y_max - y_min, 0, y_min],
+            [0, 0, z_max - z_min, z_min],
+            [0, 0, 0, 1],
         ]
-    
+
     @staticmethod
     def get_matrix_M():
 
-        return[
-            [1,   0,     0,     0.5],
-            [0,   1,     0,     0.5],
-            [0,   0,     1,     0.5],
-            [0,   0,     0,     1  ]
-        ]
-
+        return [[1, 0, 0, 0.5], [0, 1, 0, 0.5], [0, 0, 1, 0.5], [0, 0, 0, 1]]
 
 
 class Mat4:
 
-# Classe para operações de matriz (4x4)
+    # Classe para operações de matriz (4x4)
     @staticmethod
     def print_matrix(M):
         for line in M:
             print(line)
 
-
     @staticmethod
     def identity():
-        return [
-
-            [1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1, 0],
-            [0, 0, 0, 1]
-
-        ]
+        return [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
 
     @staticmethod
     def null():
         return [
-            
             [0.0, 0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0]
-
+            [0.0, 0.0, 0.0, 0.0],
         ]
-    
+
     @staticmethod
     def trans(dx, dy, dz):
-        return [
-            [1, 0, 0, dx],
-            [0, 1, 0, dy],
-            [0, 0, 1, dz],
-            [0, 0, 0, 1 ]
-        ]
-    
+        return [[1, 0, 0, dx], [0, 1, 0, dy], [0, 0, 1, dz], [0, 0, 0, 1]]
+
     @staticmethod
     def scale(sx, sy, sz):
-        return [
-            [sx, 0, 0, 0],
-            [0, sy, 0, 0],
-            [0, 0, sz, 0],
-            [0, 0, 0,  1]
-        ]
-    
+        return [[sx, 0, 0, 0], [0, sy, 0, 0], [0, 0, sz, 0], [0, 0, 0, 1]]
+
     @staticmethod
     def rotate_z(tetha):
-        #a biblioteca aceita radianos
-        #o usuario envia o parâmetro em graus, e a conversão ocorre aqui
+        # a biblioteca aceita radianos
+        # o usuario envia o parâmetro em graus, e a conversão ocorre aqui
         tetha_rad = math.radians(tetha)
         cos = math.cos(tetha_rad)
         sen = math.sin(tetha_rad)
 
-        return[
+        return [[cos, -sen, 0, 0], [sen, cos, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
 
-            [cos, -sen, 0, 0],
-            [sen,  cos, 0, 0],
-            [0,    0,   1, 0],
-            [0,    0,   0, 1]
-        ]
-    
     @staticmethod
     def rotate_y(tetha):
 
@@ -264,13 +215,8 @@ class Mat4:
         cos = math.cos(tetha_rad)
         sen = math.sin(tetha_rad)
 
-        return[
-            [cos,  0, sen,  0],
-            [0,    1, 0,    0],
-            [-sen, 0, cos,  0],
-            [0,    0, 0,    1]
-        ]
-    
+        return [[cos, 0, sen, 0], [0, 1, 0, 0], [-sen, 0, cos, 0], [0, 0, 0, 1]]
+
     @staticmethod
     def rotate_x(tetha):
 
@@ -278,26 +224,19 @@ class Mat4:
         cos = math.cos(tetha_rad)
         sen = math.sin(tetha_rad)
 
-        return[
-            [1, 0,   0,      0],
-            [0, cos, -sen,   0],
-            [0, sen, cos,    0],
-            [0, 0,   0,      1]
-        ]
-    
+        return [[1, 0, 0, 0], [0, cos, -sen, 0], [0, sen, cos, 0], [0, 0, 0, 1]]
+
     @staticmethod
     def mul(mat1, mat2):
-        #essa função é melhor aplicada para compor matrizes
+        # essa função é melhor aplicada para compor matrizes
         res = Mat4.null()
 
-        for i in range(4):            
-            for j in range(4):       
-                for k in range(4):   
+        for i in range(4):
+            for j in range(4):
+                for k in range(4):
                     res[i][j] += mat1[i][k] * mat2[k][j]
 
         return res
-
-
 
 
 class Face:
@@ -305,22 +244,20 @@ class Face:
 
     def __init__(self, i0, i1, i2, i3):
 
-        #face do mundo
+        # face do mundo
         self.indices = (i0, i1, i2, i3)
 
-        #calcular normal (já normalizado)
-        self.normal = None        
+        # calcular normal (já normalizado)
+        self.normal = None
 
-        
+
 class Cubo:
-
 
     def print_vertices(self):
         i = 0
         for v in self.vertices_modelo_transformados:
             print(f"v{i}: {v}")
             i += 1
-
 
     def aplicar_transformacao(self, mat):
         novos_vertices = []
@@ -333,8 +270,8 @@ class Cubo:
         self.atualizar_normais()
         self.calcular_centroide()
 
-
     def atualizar_normais(self):
+        # 1. Calcular e normalizar as normais das faces
         for face in self.lista_faces:
             i0, i1, i2, i3 = face.indices
 
@@ -342,89 +279,108 @@ class Cubo:
             B = self.vertices_modelo_transformados[i1]
             C = self.vertices_modelo_transformados[i3]
 
-            AB = (B[0]-A[0], B[1]-A[1], B[2]-A[2])
-            AC = (C[0]-A[0], C[1]-A[1], C[2]-A[2])
+            AB = (B[0] - A[0], B[1] - A[1], B[2] - A[2])
+            AC = (C[0] - A[0], C[1] - A[1], C[2] - A[2])
 
-            face.normal = Vector.cross_product(AB, AC)
+            normal = Vector.cross_product(AB, AC)
+            face.normal = Vector.normalize(normal)
 
+        # 2. Calcular normais de vértice (média das normais das faces adjacentes)
+        num_vertices = len(self.vertices_modelo_transformados)
+        self.normais_vertices = [(0, 0, 0)] * num_vertices
 
+        for idx_vertice in range(num_vertices):
+            soma_nx, soma_ny, soma_nz = 0.0, 0.0, 0.0
+            count = 0
+
+            # Encontrar todas as faces que contêm este vértice
+            for face in self.lista_faces:
+                if idx_vertice in face.indices:
+                    soma_nx += face.normal[0]
+                    soma_ny += face.normal[1]
+                    soma_nz += face.normal[2]
+                    count += 1
+
+            # Calcular média e normalizar
+            if count > 0:
+                media = (soma_nx / count, soma_ny / count, soma_nz / count)
+                self.normais_vertices[idx_vertice] = Vector.normalize(media)
 
     def calcular_centroide(self):
-            # Inicializa acumuladores para X, Y, Z
-            soma_x = 0.0
-            soma_y = 0.0
-            soma_z = 0.0
-            
-            num_vertices = len(self.vertices_modelo_transformados)
-            
-            # Percorre todos os vértices do cubo
-            for v in self.vertices_modelo_transformados:
-                soma_x += v[0] # Soma X
-                soma_y += v[1] # Soma Y
-                soma_z += v[2] # Soma Z
-                # O v[3] é o W, nós ignoramos ele propositalmente
-                
-            # Calcula a média aritmética
-            cx = soma_x / num_vertices
-            cy = soma_y / num_vertices
-            cz = soma_z / num_vertices
-            
-            return cx, cy, cz
-             
+        # Inicializa acumuladores para X, Y, Z
+        soma_x = 0.0
+        soma_y = 0.0
+        soma_z = 0.0
 
+        num_vertices = len(self.vertices_modelo_transformados)
+
+        # Percorre todos os vértices do cubo
+        for v in self.vertices_modelo_transformados:
+            soma_x += v[0]  # Soma X
+            soma_y += v[1]  # Soma Y
+            soma_z += v[2]  # Soma Z
+            # O v[3] é o W, nós ignoramos ele propositalmente
+
+        # Calcula a média aritmética
+        cx = soma_x / num_vertices
+        cy = soma_y / num_vertices
+        cz = soma_z / num_vertices
+
+        return cx, cy, cz
 
     # So precisamos de um vértice e a medida do lado pra definir um cubo
     # v0 poderia ser o local do clique do mouse
-    def __init__(self, v0, lado, ka, kd, ks): 
+    def __init__(self, v0, lado, ka, kd, ks):
 
         # Dados básicos: material, topologia inicial, faces
 
-        self.ka = [ka[0], ka[1], ka[2]] #(r, g, b)
-        self.kd = [kd[0], kd[1], kd[2]]  
-        self.ks = [ks[0], ks[1], ks[2], ks[3]] #(r, g, b, n)
-        
+        self.ka = [ka[0], ka[1], ka[2]]  # (r, g, b)
+        self.kd = [kd[0], kd[1], kd[2]]
+        self.ks = [ks[0], ks[1], ks[2], ks[3]]  # (r, g, b, n)
+
         x, y, z = v0[0], v0[1], v0[2]
         l = lado
 
-        #não sofre transformações
-        v0 = (x,     y,     z,     1) # Trás-Esq-Baixo
-        v1 = (x + l, y,     z,     1) # Trás-Dir-Baixo
-        v2 = (x,     y + l, z,     1) # Trás-Esq-Cima
-        v3 = (x + l, y + l, z,     1) # Trás-Dir-Cima)
-        v4 = (x,     y,     z + l, 1) # Frente-Esq-Baixo
-        v5 = (x + l, y,     z + l, 1) # Frente-Dir-Baixo
-        v6 = (x,     y + l, z + l, 1) # Frente-Esq-Cima
-        v7 = (x + l, y + l, z + l, 1) # Frente-Dir-Cima
+        # não sofre transformações
+        v0 = (x, y, z, 1)  # Trás-Esq-Baixo
+        v1 = (x + l, y, z, 1)  # Trás-Dir-Baixo
+        v2 = (x, y + l, z, 1)  # Trás-Esq-Cima
+        v3 = (x + l, y + l, z, 1)  # Trás-Dir-Cima)
+        v4 = (x, y, z + l, 1)  # Frente-Esq-Baixo
+        v5 = (x + l, y, z + l, 1)  # Frente-Dir-Baixo
+        v6 = (x, y + l, z + l, 1)  # Frente-Esq-Cima
+        v7 = (x + l, y + l, z + l, 1)  # Frente-Dir-Cima
 
-        
         self.vertices_modelo = [v0, v1, v2, v3, v4, v5, v6, v7]
         self.vertices_modelo_transformados = list(self.vertices_modelo)
 
         # Faces em sentido anti-horário
-        face0 = Face(4, 5, 7, 6) # Frente
-        face1 = Face(1, 0, 2, 3) # Traś
-        face2 = Face(0, 4, 6, 2) # Direita
-        face3 = Face(5, 1, 3, 7) # Esquerda
-        face4 = Face(2, 6, 7, 3) # Topo
-        face5 = Face(4, 0, 1, 5) # Base
-
-
+        face0 = Face(4, 5, 7, 6)  # Frente
+        face1 = Face(1, 0, 2, 3)  # Traś
+        face2 = Face(0, 4, 6, 2)  # Direita
+        face3 = Face(5, 1, 3, 7)  # Esquerda
+        face4 = Face(2, 6, 7, 3)  # Topo
+        face5 = Face(4, 0, 1, 5)  # Base
 
         self.lista_faces = (face0, face1, face2, face3, face4, face5)
-        
-        #faces que vão sofrer alterações
+
+        # faces que vão sofrer alterações
         self.model_faces = [face0, face1, face2, face3, face4, face5]
         # Dados do mundo
-   
-        #matrix que vai sofrer transformações e ser rasterizada
-        
-        self.rotacao = [0.0, 0.0, 0.0] # Rotação atual
-        self.escala = 1.0 # escala atual
+
+        # matrix que vai sofrer transformações e ser rasterizada
+
+        self.rotacao = [0.0, 0.0, 0.0]  # Rotação atual
+        self.escala = 1.0  # escala atual
         self.atualizar_normais()
         self.centroide = self.calcular_centroide()
 
-        self.trans = [self.centroide[0], self.centroide[1], self.centroide[2]] #Posição atual (referência no centróide)
-            
+        self.trans = [
+            self.centroide[0],
+            self.centroide[1],
+            self.centroide[2],
+        ]  # Posição atual (referência no centróide)
+
 
 class Camera:
 
@@ -432,30 +388,45 @@ class Camera:
         return (self.u, self.v, self.n)
 
     def cal_view_spec(self):
-        #função para calcular o view spec (página 4 do artigo do Alvy-Ray)
-        
+        # função para calcular o view spec (página 4 do artigo do Alvy-Ray)
+
         n = Vector.normalize(self.N)
 
         up = Vector.normalize(self.Y)
 
-        dot = Vector.dot_product(up, n) 
-        
+        dot = Vector.dot_product(up, n)
+
         vx = up[0] - (dot * n[0])
         vy = up[1] - (dot * n[1])
         vz = up[2] - (dot * n[2])
-        
+
         v_temp = [vx, vy, vz]
         v = Vector.normalize(v_temp)
 
-        #calcular vetor u (invertido pra usar a regra da mão direita)
+        # calcular vetor u (invertido pra usar a regra da mão direita)
         u = Vector.normalize(Vector.cross_product(v, n))
 
         return u, v, n
-    
 
+    def __init__(
+        self,
+        vrp,
+        prp,
+        vpn,
+        vup,
+        P,
+        Y,
+        u_max,
+        u_min,
+        v_max,
+        v_min,
+        DP,
+        near,
+        far,
+        Vres,
+        Hres,
+    ):
 
-    def __init__(self, vrp, prp, vpn, vup, P, Y, u_max, u_min, v_max, v_min, DP, near, far, Vres, Hres):
-        
         self.vrp = [vrp[0], vrp[1], vrp[2]]
         self.vpn = [vpn[0], vpn[1], vpn[2]]
         self.vup = [vup[0], vup[1], vpn[2]]
@@ -463,58 +434,59 @@ class Camera:
         self.prp = [prp[0], prp[1], prp[2]]
 
         self.N = Vector.create_vector(vrp, P)
-        
+
         self.Y = [Y[0], Y[1], Y[2]]
 
         self.u, self.v, self.n = self.cal_view_spec()
-     
-        # Distância focal (d) 
+
+        # Distância focal (d)
         self.DP = DP
-        
-        self.z_min = near/far
+
+        self.z_min = near / far
         self.z_max = 1
         self.Vres = Vres
         self.Hres = Hres
-    
 
-        self.window = {"u_min" : u_min, "u_max": u_max,
-                       "v_min" : v_min, "v_max" : v_max}
-        
+        self.window = {"u_min": u_min, "u_max": u_max, "v_min": v_min, "v_max": v_max}
+
         self.Cu = (self.window["u_max"] + self.window["u_min"]) / 2
         self.Cv = (self.window["v_max"] + self.window["v_min"]) / 2
         self.Su = (self.window["u_max"] - self.window["u_min"]) / 2
         self.Sv = (self.window["v_max"] - self.window["v_min"]) / 2
-        self.AR = self.Su/self.Sv
-        self.PAR = self.AR*(self.Vres/self.Hres)
+        self.AR = self.Su / self.Sv
+        self.PAR = self.AR * (self.Vres / self.Hres)
 
         # Planos de Recorte (Clipping) para definir o Volume de Visão
-        self.near = near    # Distância mínima (Z min)
-        self.far = far   # Distância máxima (Z max)
+        self.near = near  # Distância mínima (Z min)
+        self.far = far  # Distância máxima (Z max)
+
 
 class VerticeWA:
     # Estrutura auxiliar para as listas duplamente encadeadas do Weiler-Atherton
-    def __init__(self, x, y, z=0, normal = None):
+    def __init__(self, x, y, z=0, normal=None):
         self.x = x
         self.y = y
         self.z = z
         self.normal = normal
         self.is_intersecao = False
-        self.is_entrada = False # True = Entrando no Clip, False = Saindo
+        self.is_entrada = False  # True = Entrando no Clip, False = Saindo
         self.visitado = False
-        self.proximo = None      # Ponteiro para o próximo vértice na lista do polígono
-        self.proximo_clip = None # Ponteiro para a lista da janela de recorte
-        self.alpha = 0.0         # Fator paramétrico (0 a 1) para ordenação de interseções
+        self.proximo = None  # Ponteiro para o próximo vértice na lista do polígono
+        self.proximo_clip = None  # Ponteiro para a lista da janela de recorte
+        self.alpha = 0.0  # Fator paramétrico (0 a 1) para ordenação de interseções
 
     def __repr__(self):
         tipo = "INT" if self.is_intersecao else "VERT"
-        dir = "(ENTRADA)" if self.is_entrada else "(SAIDA)" if self.is_intersecao else ""
+        dir = (
+            "(ENTRADA)" if self.is_entrada else "(SAIDA)" if self.is_intersecao else ""
+        )
         return f"{tipo}: ({self.x:.1f}, {self.y:.1f}) {dir}"
 
 
 class RenderPoligon:
-    #classe para definir o polígono renderizavel, guardando vertices do cubo após recorte
-    #evitar mudar a classe cubo, pra não afetar o trabalho dos outros
-    #representa uma face, que é a unidade basica a ser renderizada
+    # classe para definir o polígono renderizavel, guardando vertices do cubo após recorte
+    # evitar mudar a classe cubo, pra não afetar o trabalho dos outros
+    # representa uma face, que é a unidade basica a ser renderizada
     def __init__(self, vertices_2d, ka, kd, ks, normal):
         self.vertices_2d = vertices_2d
         self.ka = ka
@@ -525,45 +497,55 @@ class RenderPoligon:
 
 class Luz:
     # Constantes para legibilidade
-    PONTUAL = 1 #fonte de luz na cena
-    DIRECIONAL = 2 #fonte de luz no infinito
+    PONTUAL = 1  # fonte de luz na cena
+    DIRECIONAL = 2  # fonte de luz no infinito
 
     def __init__(self, tipo, vetor_pos_dir, intensidade_rgb_s, intensidade_rgb_d):
         self.tipo = tipo  # Luz.PONTUAL ou Luz.DIRECIONAL
-        
+
         # Se for PONTUAL, vetor_pos_dir é a Posição (x, y, z)
         # Se for DIRECIONAL, vetor_pos_dir é a Direção (dx, dy, dz)
-        self.posicao_ou_direcao = [vetor_pos_dir[0], vetor_pos_dir[1], vetor_pos_dir[2]] 
-        
+        self.posicao_ou_direcao = [vetor_pos_dir[0], vetor_pos_dir[1], vetor_pos_dir[2]]
+
         # Intensidades da Fonte Luminosa
         # Cor da luz
-        self.id = [intensidade_rgb_d[0], intensidade_rgb_d[1], intensidade_rgb_d[2]]  # Intensidade Difusa (RGB)
-        self.i_spec = [intensidade_rgb_s[0], intensidade_rgb_s[1], intensidade_rgb_s[2]]  # Intensidade Especular (Geralmente igual à difusa)
+        self.id = [
+            intensidade_rgb_d[0],
+            intensidade_rgb_d[1],
+            intensidade_rgb_d[2],
+        ]  # Intensidade Difusa (RGB)
+        self.i_spec = [
+            intensidade_rgb_s[0],
+            intensidade_rgb_s[1],
+            intensidade_rgb_s[2],
+        ]  # Intensidade Especular (Geralmente igual à difusa)
+
 
 class Cena:
     def __init__(self, height, width):
         # --- Gerenciamento de Objetos ---
-        self.objetos = []     # Lista de instâncias de Cubo
-        self.luzes = []       # Lista de instâncias de Luz
-        self.camera = None    # Instância de Camera
+        self.objetos = []  # Lista de instâncias de Cubo
+        self.luzes = []  # Lista de instâncias de Luz
+        self.camera = None  # Instância de Camera
         self.height = height
         self.width = width
-        
 
         self.viewport = {"x_min": 0, "y_min": 0, "x_max": width, "y_max": height}
 
         # Luz Ambiente Global (Ilumina todas as faces minimamente)
-        self.ia = [0.1, 0.1, 0.1] # Cinza escuro fraco
+        self.ia = [0.1, 0.1, 0.1]  # Cinza escuro fraco
 
         # --- Buffers de Rasterização (Alocação de Memória) ---
         # ColorBuffer: Matriz width x height guardando tuplas (R, G, B)
         # Uma entrada para cada pixel
         # Inicializa tudo com preto (0,0,0)
         self.color_buffer = [[(0, 0, 0) for _ in range(height)] for _ in range(width)]
-        
+
         # DepthBuffer (Z-Buffer): Matriz width x height guardando floats
         # Inicializa com infinito positivo (qualquer objeto será menor que infinito)
-        self.depth_buffer = [[float('inf') for _ in range(height)] for _ in range(width)]
+        self.depth_buffer = [
+            [float("inf") for _ in range(height)] for _ in range(width)
+        ]
 
     def adicionar_objeto(self, cubo):
         self.objetos.append(cubo)
@@ -579,20 +561,19 @@ class Cena:
         # Pinta fundo de preto e Z-buffer de infinito
         for x in range(self.width):
             for y in range(self.height):
-                self.color_buffer[x][y] =[0, 0, 0] # Cor de fundo
-                self.depth_buffer[x][y] = float('inf')
-      
+                self.color_buffer[x][y] = [0, 0, 0]  # Cor de fundo
+                self.depth_buffer[x][y] = float("inf")
+
     @staticmethod
     def inserir_vertice_ordenado(p_inicio, p_fim, novo_vertice):
         atual = p_inicio
         # Procura a posição correta baseada no 'alpha' (distância do início da reta)
         while atual.proximo != p_fim and atual.proximo.alpha < novo_vertice.alpha:
             atual = atual.proximo
-        
+
         # Insere o novo_vertice na corrente
         novo_vertice.proximo = atual.proximo
         atual.proximo = novo_vertice
-
 
     @staticmethod
     def calcular_intersecao(p1, p2, p3, p4):
@@ -606,19 +587,23 @@ class Cena:
             # as multíplicações de matriz geram muito erro de ponto flutuante
             # acaba saindo muitos valores proximos de zero, que deveriam ser zero
             # se não fizer isso, a conta aqui embaixo quebra pq divide por um numero muito pequenp
-            return None # considera as linhas paralelas
+            return None  # considera as linhas paralelas
 
         # t = posição da interseção na reta 1 (Face)
-        t = ((p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x)) / denominador
+        t = (
+            (p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x)
+        ) / denominador
         # u = posição da interseção na reta 2 (Janela)
-        u = ((p1.x - p3.x) * (p1.y - p2.y) - (p1.y - p3.y) * (p1.x - p2.x)) / denominador
+        u = (
+            (p1.x - p3.x) * (p1.y - p2.y) - (p1.y - p3.y) * (p1.x - p2.x)
+        ) / denominador
 
         if 0.0 <= t <= 1.0 and 0.0 <= u <= 1.0:
             int_x = p1.x + t * (p2.x - p1.x)
             int_y = p1.y + t * (p2.y - p1.y)
             # INTERPOLAÇÃO DE Z:
             int_z = p1.z + t * (p2.z - p1.z)
-            return (int_x, int_y, int_z, t) # Retorne o Z também
+            return (int_x, int_y, int_z, t)  # Retorne o Z também
 
     def recorteWA(self, vertices_face_tela):
         # passo 1: definir a janela de recorte
@@ -627,22 +612,24 @@ class Cena:
         xmax = self.viewport["x_max"]
         ymin = self.viewport["y_min"]
         ymax = self.viewport["y_max"]
-        
+
         # cria os vértices da janela no sentido horário
         janela = [
-            VerticeWA(xmin, ymin, z_padrao), # v0: Fundo-Esq
-            VerticeWA(xmax, ymin, z_padrao), # v1: Fundo-Dir
-            VerticeWA(xmax, ymax, z_padrao), # v2: Topo-Dir
-            VerticeWA(xmin, ymax, z_padrao)  # v3: Topo-Esq
+            VerticeWA(xmin, ymin, z_padrao),  # v0: Fundo-Esq
+            VerticeWA(xmax, ymin, z_padrao),  # v1: Fundo-Dir
+            VerticeWA(xmax, ymax, z_padrao),  # v2: Topo-Dir
+            VerticeWA(xmin, ymax, z_padrao),  # v3: Topo-Esq
         ]
         # encadear os vértices da janela
         for i in range(4):
             janela[i].proximo = janela[(i + 1) % 4]
 
-        # passo2: criar a lista da face
+        # passo 2: criar a lista da face com as normais
         sujeito = []
         for v in vertices_face_tela:
-            sujeito.append(VerticeWA(v[0], v[1], v[2])) # x, y, z
+            # v pode ser (x, y, z) ou (x, y, z, normal)
+            normal = v[3] if len(v) > 3 else None
+            sujeito.append(VerticeWA(v[0], v[1], v[2], normal=normal))
 
         for i in range(len(sujeito)):
             sujeito[i].proximo = sujeito[(i + 1) % len(sujeito)]
@@ -657,20 +644,31 @@ class Cena:
                 p4 = janela[(j + 1) % 4]
 
                 intersecao = self.calcular_intersecao(p1, p2, p3, p4)
-                
+
                 if intersecao:
                     ix, iy, iz, t = intersecao
-                    
-                    # 1. Cria o vértice para a lista da fave
-                    int_sujeito = VerticeWA(ix, iy, iz)
+
+                    # Interpolar a normal usando o parâmetro t
+                    normal_interp = None
+                    if p1.normal is not None and p2.normal is not None:
+                        normal_interp = (
+                            p1.normal[0] * (1 - t) + p2.normal[0] * t,
+                            p1.normal[1] * (1 - t) + p2.normal[1] * t,
+                            p1.normal[2] * (1 - t) + p2.normal[2] * t
+                        )
+
+                    # 1. Cria o vértice para a lista da face
+                    int_sujeito = VerticeWA(ix, iy, iz, normal=normal_interp)
                     int_sujeito.is_intersecao = True
-                    int_sujeito.alpha = t # 't' da reta da face
-                    
+                    int_sujeito.alpha = t  # 't' da reta da face
+
                     # 2. Cria o vértice (gêmeo) para a lista da Janela
-                    u = ((ix - p3.x) * (p4.x - p3.x) + (iy - p3.y) * (p4.y - p3.y)) / ((p4.x - p3.x)**2 + (p4.y - p3.y)**2)
-                    int_janela = VerticeWA(ix, iy, iz)
+                    u = ((ix - p3.x) * (p4.x - p3.x) + (iy - p3.y) * (p4.y - p3.y)) / (
+                        (p4.x - p3.x) ** 2 + (p4.y - p3.y) ** 2
+                    )
+                    int_janela = VerticeWA(ix, iy, iz, normal=normal_interp)
                     int_janela.is_intersecao = True
-                    int_janela.alpha = u # 'u' da reta da janela
+                    int_janela.alpha = u  # 'u' da reta da janela
 
                     # Linka os gêmeos (O "troca-trilho" do algoritmo)
                     int_sujeito.proximo_clip = int_janela
@@ -687,38 +685,43 @@ class Cena:
 
         # passo 4: varrer a lista e ligar os poligonos
         poligonos_recortados = []
-        
+
         atual = sujeito[0]
-        for _ in range(len(sujeito) * 2): # Limite de segurança contra loops infinitos
+        for _ in range(len(sujeito) * 2):  # Limite de segurança contra loops infinitos
             if atual.is_intersecao and atual.is_entrada and not atual.visitado:
                 novo_poligono = []
                 p_nav = atual
-                
+
                 while not p_nav.visitado:
                     p_nav.visitado = True
-                    # Na linha 680 de logica.py
-                    novo_poligono.append((p_nav.x, p_nav.y, p_nav.z))
-                    
+                    # Inclui normal para interpolação Phong
+                    novo_poligono.append((p_nav.x, p_nav.y, p_nav.z, p_nav.normal))
+
                     if p_nav.is_intersecao:
-                        p_nav.proximo_clip.visitado = True # Marca o gêmeo como visitado
+                        p_nav.proximo_clip.visitado = (
+                            True  # Marca o gêmeo como visitado
+                        )
                         if p_nav.is_entrada:
-                            p_nav = p_nav.proximo # ENTRADA: Segue o Sujeito
+                            p_nav = p_nav.proximo  # ENTRADA: Segue o Sujeito
                         else:
-                            p_nav = p_nav.proximo_clip.proximo # SAÍDA: Segue a Janela
+                            p_nav = p_nav.proximo_clip.proximo  # SAÍDA: Segue a Janela
                     else:
-                        p_nav = p_nav.proximo # Vértice comum
-                
+                        p_nav = p_nav.proximo  # Vértice comum
+
                 poligonos_recortados.append(novo_poligono)
 
             atual = atual.proximo
 
         # CASO ESPECIAL: O polígono está 100% dentro da tela
         if len(poligonos_recortados) == 0:
-          if (xmin <= sujeito[0].x <= xmax) and (ymin <= sujeito[0].y <= ymax):
-            # MUDANÇA: Inclua o v[2] (Z) na tupla de retorno
-            poligono_3d = [(v[0], v[1], v[2]) for v in vertices_face_tela]
-            return [poligono_3d]
-        return []
+            if (xmin <= sujeito[0].x <= xmax) and (ymin <= sujeito[0].y <= ymax):
+                # Inclui normal para interpolação Phong
+                poligono_3d = []
+                for v in vertices_face_tela:
+                    normal = v[3] if len(v) > 3 else None
+                    poligono_3d.append((v[0], v[1], v[2], normal))
+                return [poligono_3d]
+        return poligonos_recortados
 
     def _rasterizar_face(
         self, vertices_tela, shader_mode, cor_flat=None, material=None
@@ -756,25 +759,25 @@ class Cena:
             dx_dy = (p2.x - p1.x) / dy
             dz_dy = (p2.z - p1.z) / dy
 
-            start_y = int(math.ceil(p1.y)) # Próxima scanline válida
+            start_y = int(math.ceil(p1.y))  # Próxima scanline válida
             offset_y = start_y - p1.y
 
             aresta = {
                 "ymax": int(math.ceil(p2.y)),
-                "x": p1.x + (offset_y * dx_dy), # Ajuste sub-pixel
+                "x": p1.x + (offset_y * dx_dy),  # Ajuste sub-pixel
                 "dx_dy": dx_dy,
-                "z": p1.z + (offset_y * dz_dy), # Ajuste sub-pixel
+                "z": p1.z + (offset_y * dz_dy),  # Ajuste sub-pixel
                 "dz_dy": dz_dy,
             }
 
             # Dados básicos da aresta
-            #aresta = {
+            # aresta = {
             #    "ymax": p2.y,
             #    "x": p1.x,
             #    "dx_dy": dx_dy,
             #    "z": p1.z,
             #    "dz_dy": dz_dy,
-            #}
+            # }
 
             # Para o Phong, interpolamos as normais
             if shader_mode == 2:
@@ -793,7 +796,7 @@ class Cena:
                     }
                 )
 
-            #start_y = int(p1.y)
+            # start_y = int(p1.y)
             if start_y < y_max:
                 if start_y < 0:
                     start_y = 0  # Clipagem simples superior
@@ -823,8 +826,8 @@ class Cena:
                 x_start = int(math.ceil(e1["x"]))
                 x_end = int(math.ceil(e2["x"]))
 
-             #   x_start = int(e1["x"] + 0.5) 
-              #  x_end = int(e2["x"] + 0.5) 
+                #   x_start = int(e1["x"] + 0.5)
+                #  x_end = int(e2["x"] + 0.5)
 
                 # Clipagem horizontal de X
                 x_start = max(0, x_start)
@@ -851,7 +854,7 @@ class Cena:
                 # 3. Loop dos Pixels (X)
                 for x in range(x_start, x_end):
                     # Teste de Z-Buffer
-                    #if z < self.depth_buffer[x][y]:
+                    # if z < self.depth_buffer[x][y]:
                     if z <= self.depth_buffer[x][y] + 1e-6:
                         self.depth_buffer[x][y] = z  # Atualiza Z
 
@@ -897,7 +900,7 @@ class Cena:
         b = self.ia[2] * material.ka[2]
 
         # Posição do observador (assumindo que está em +Z infinito para simplificar)
-        #S = self.camera.vrp
+        # S = self.camera.vrp
         S = (0, 0, 1)
 
         for luz in self.luzes:
@@ -957,81 +960,102 @@ class Cena:
 
         return (r, g, b)
 
-
     def renderizar(self):
-            self.limpar_buffers()
+        self.limpar_buffers()
 
-            if not self.camera:
-                print("Câmera não instânciada")
-                return
+        if not self.camera:
+            print("Câmera não instânciada")
+            return
 
-            # 1. PEGAR MATRIZES DE PROJEÇÃO E TELA (Usando o Pipeline do logica.py)
-            mat_A = Pipeline.get_matrix_A(self.camera.vrp)
-            mat_B = Pipeline.get_matrix_B(self.camera.u, self.camera.v, self.camera.n)
-            mat_C = Pipeline.get_matrix_C(self.camera.Cu, self.camera.Cv, self.camera.DP)
-            mat_D = Pipeline.get_matrix_D(self.camera.Su, self.camera.Sv, self.camera.DP, self.camera.far)
-            mat_P = Pipeline.get_matrix_P(self.camera.far, self.camera.near)
-            
-            mat_J = Pipeline.get_matrix_J()
-            mat_K = Pipeline.get_matrix_K()
-            mat_L = Pipeline.get_matrix_L(self.viewport["x_max"], self.viewport["x_min"], self.viewport["y_max"], self.viewport["y_min"], self.camera.z_max, self.camera.z_min)
-            mat_M = Pipeline.get_matrix_M()
+        # 1. PEGAR MATRIZES DE PROJEÇÃO E TELA (Usando o Pipeline do logica.py)
+        mat_A = Pipeline.get_matrix_A(self.camera.vrp)
+        mat_B = Pipeline.get_matrix_B(self.camera.u, self.camera.v, self.camera.n)
+        mat_C = Pipeline.get_matrix_C(self.camera.Cu, self.camera.Cv, self.camera.DP)
+        mat_D = Pipeline.get_matrix_D(
+            self.camera.Su, self.camera.Sv, self.camera.DP, self.camera.far
+        )
+        mat_P = Pipeline.get_matrix_P(self.camera.far, self.camera.near)
 
-            # Composição: Mundo -> Clip Space -> Tela
-            m_view = Mat4.mul(mat_B, mat_A)
-            m_proj = Mat4.mul(mat_P, Mat4.mul(mat_D, mat_C))
-            m_total_proj = Mat4.mul(m_proj, m_view) 
-            m_screen = Mat4.mul(mat_M, Mat4.mul(mat_L, Mat4.mul(mat_K, mat_J)))
+        mat_J = Pipeline.get_matrix_J()
+        mat_K = Pipeline.get_matrix_K()
+        mat_L = Pipeline.get_matrix_L(
+            self.viewport["x_max"],
+            self.viewport["x_min"],
+            self.viewport["y_max"],
+            self.viewport["y_min"],
+            self.camera.z_max,
+            self.camera.z_min,
+        )
+        mat_M = Pipeline.get_matrix_M()
 
-            # 2. PROCESSAR OBJETOS
-            for obj in self.objetos:
-                for face in obj.lista_faces:
+        # Composição: Mundo -> Clip Space -> Tela
+        m_view = Mat4.mul(mat_B, mat_A)
+        m_proj = Mat4.mul(mat_P, Mat4.mul(mat_D, mat_C))
+        m_total_proj = Mat4.mul(m_proj, m_view)
+        m_screen = Mat4.mul(mat_M, Mat4.mul(mat_L, Mat4.mul(mat_K, mat_J)))
 
-                    # --- BACK-FACE CULLING (Remoção de Faces Ocultas) ---
-                    v0 = obj.vertices_modelo_transformados[face.indices[0]]
-                    vx = self.camera.vrp[0] - v0[0]
-                    vy = self.camera.vrp[1] - v0[1]
-                    vz = self.camera.vrp[2] - v0[2]
-                    
-                    # Produto Escalar (Normal da Face . Vetor Visão)
-                    dot_vis = (face.normal[0] * vx) + (face.normal[1] * vy) + (face.normal[2] * vz)
+        # 2. PROCESSAR OBJETOS
+        for obj in self.objetos:
+            for face in obj.lista_faces:
 
-                    # Se a face estiver visível:
-                    if dot_vis > 0:
-                        
-                        # A. PROJEÇÃO (Mundo -> Tela)
-                        vertices_tela_brutos = []
-                        for idx in face.indices:
-                            v_mundo = obj.vertices_modelo_transformados[idx]
-                            v_clip = Vector.mul(m_total_proj, v_mundo)
-                            
-                            w = v_clip[3] if v_clip[3] != 0 else 0.0001
-                            v_ndc = [v_clip[0]/w, v_clip[1]/w, v_clip[2]/w, 1.0]
-                            v_tela = Vector.mul(m_screen, v_ndc)
-                            vertices_tela_brutos.append((v_tela[0], v_tela[1], v_tela[2]))
+                # --- BACK-FACE CULLING (Remoção de Faces Ocultas) ---
+                v0 = obj.vertices_modelo_transformados[face.indices[0]]
+                vx = self.camera.vrp[0] - v0[0]
+                vy = self.camera.vrp[1] - v0[1]
+                vz = self.camera.vrp[2] - v0[2]
 
-                        # B. RECORTE (WEILER-ATHERTON)
-                        # Recebe os 4 pontos e devolve N polígonos recortados
-                        poligonos_recortados = self.recorteWA(vertices_tela_brutos)
+                # Produto Escalar (Normal da Face . Vetor Visão)
+                dot_vis = (
+                    (face.normal[0] * vx)
+                    + (face.normal[1] * vy)
+                    + (face.normal[2] * vz)
+                )
 
-                        # C. PREPARAÇÃO PARA RASTERIZAR
-                        modo_shader = 2 # 1 = Flat, 2 = Phong
+                # Se a face estiver visível:
+                if dot_vis > 0:
 
-                        for poligono in poligonos_recortados:
-                            # O recorteWA devolve pontos 2D (x,y). Precisamos trazer o Z para o buffer.
-                            # Assumimos o Z do primeiro vértice para a face 2D recortada.
-                            z_base = vertices_tela_brutos[0][2] 
-                            
-                            vertices_prontos = []
-                            for pt in poligono:
-                                vertices_prontos.append(VerticeTela(pt[0], pt[1], pt[2], normal=face.normal))
+                    # A. PROJEÇÃO (Mundo -> Tela)
+                    vertices_tela_brutos = []
+                    for idx in face.indices:
+                        v_mundo = obj.vertices_modelo_transformados[idx]
+                        v_clip = Vector.mul(m_total_proj, v_mundo)
 
-                            # D. ILUMINAÇÃO (Cálculo da Cor)
-                            cor_flat = (0, 0, 0)
-                            if modo_shader == 1 and len(self.luzes) > 0:
-                                cor_flat = self._calcular_phong_pixel(face.normal, obj)
-                            elif modo_shader == 1:
-                                cor_flat = (100, 100, 100) # Sem luz
+                        w = v_clip[3] if v_clip[3] != 0 else 0.0001
+                        v_ndc = [v_clip[0] / w, v_clip[1] / w, v_clip[2] / w, 1.0]
+                        v_tela = Vector.mul(m_screen, v_ndc)
+                        # Inclui a normal de vértice para interpolação Phong
+                        normal_vertice = obj.normais_vertices[idx]
+                        vertices_tela_brutos.append((v_tela[0], v_tela[1], v_tela[2], normal_vertice))
 
-                            # E. RASTERIZAÇÃO (SCANLINE)
-                            self._rasterizar_face(vertices_prontos, modo_shader, cor_flat, obj)
+                    # B. RECORTE (WEILER-ATHERTON)
+                    # Recebe os 4 pontos e devolve N polígonos recortados
+                    poligonos_recortados = self.recorteWA(vertices_tela_brutos)
+
+                    # C. PREPARAÇÃO PARA RASTERIZAR
+                    modo_shader = 2  # 1 = Flat, 2 = Phong
+
+                    for poligono in poligonos_recortados:
+                        # O recorteWA devolve pontos 2D (x,y). Precisamos trazer o Z para o buffer.
+                        # Assumimos o Z do primeiro vértice para a face 2D recortada.
+                        z_base = vertices_tela_brutos[0][2]
+
+                        vertices_prontos = []
+                        for pt in poligono:
+                            # pt[3] contém a normal interpolada do vértice
+                            normal_interp = pt[3] if len(pt) > 3 and pt[3] is not None else face.normal
+                            vertices_prontos.append(
+                                VerticeTela(pt[0], pt[1], pt[2], normal=normal_interp)
+                            )
+
+                        # D. ILUMINAÇÃO (Cálculo da Cor)
+                        cor_flat = (0, 0, 0)
+                        if modo_shader == 1 and len(self.luzes) > 0:
+                            # Flat: calcula cor uma vez usando normal da face
+                            cor_flat = self._calcular_phong_pixel(face.normal, obj)
+                        elif modo_shader == 1:
+                            cor_flat = (100, 100, 100)  # Flat sem luz
+
+                        # E. RASTERIZAÇÃO (SCANLINE)
+                        self._rasterizar_face(
+                            vertices_prontos, modo_shader, cor_flat, obj
+                        )

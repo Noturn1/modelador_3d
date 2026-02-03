@@ -195,36 +195,64 @@ class Mat4:
         return [[1, 0, 0, dx], [0, 1, 0, dy], [0, 0, 1, dz], [0, 0, 0, 1]]
 
     @staticmethod
-    def scale(sx, sy, sz):
-        return [[sx, 0, 0, 0], [0, sy, 0, 0], [0, 0, sz, 0], [0, 0, 0, 1]]
+    def scale(sx, sy, sz, centroide):
+        
+        escala = [[sx, 0, 0, 0], [0, sy, 0, 0], [0, 0, sz, 0], [0, 0, 0, 1]]
+        trans_centroide_ida = Mat4.trans(-centroide[0], -centroide[1], -centroide[2])
+        trans_centroide_volta = Mat4.trans(centroide[0], centroide[1], centroide[2])
+
+        escala_centroide = Mat4.mul(escala, trans_centroide_ida)
+        return(Mat4.mul(trans_centroide_volta, escala_centroide))
 
     @staticmethod
-    def rotate_z(tetha):
+    def rotate_z(tetha, centroide):
         # a biblioteca aceita radianos
         # o usuario envia o parâmetro em graus, e a conversão ocorre aqui
         tetha_rad = math.radians(tetha)
         cos = math.cos(tetha_rad)
         sen = math.sin(tetha_rad)
 
-        return [[cos, -sen, 0, 0], [sen, cos, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        trans_centroide_ida = Mat4.trans(-centroide[0], -centroide[1], -centroide[2])
+        trans_centroide_volta = Mat4.trans(centroide[0], centroide[1], centroide[2])
+
+        rotate_z = [[cos, -sen, 0, 0], [sen, cos, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        rotate_z_centroide = Mat4.mul(rotate_z, trans_centroide_ida)
+
+
+        return(Mat4.mul(trans_centroide_volta, rotate_z_centroide))
+  
 
     @staticmethod
-    def rotate_y(tetha):
+    def rotate_y(tetha, centroide):
 
         tetha_rad = math.radians(tetha)
         cos = math.cos(tetha_rad)
         sen = math.sin(tetha_rad)
 
-        return [[cos, 0, sen, 0], [0, 1, 0, 0], [-sen, 0, cos, 0], [0, 0, 0, 1]]
+
+        trans_centroide_volta = Mat4.trans(centroide[0], centroide[1], centroide[2])
+        trans_centroide_ida = Mat4.trans(-centroide[0], -centroide[1], -centroide[2])
+        rotate_y = [[cos, 0, sen, 0], [0, 1, 0, 0], [-sen, 0, cos, 0], [0, 0, 0, 1]]
+        
+        rotate_y_centroide = Mat4.mul(rotate_y, trans_centroide_ida)
+
+        return(Mat4.mul(trans_centroide_volta, rotate_y_centroide))
 
     @staticmethod
-    def rotate_x(tetha):
+    def rotate_x(tetha, centroide):
 
         tetha_rad = math.radians(tetha)
         cos = math.cos(tetha_rad)
         sen = math.sin(tetha_rad)
 
-        return [[1, 0, 0, 0], [0, cos, -sen, 0], [0, sen, cos, 0], [0, 0, 0, 1]]
+        trans_centroide_ida = Mat4.trans(-centroide[0], -centroide[1], -centroide[2])
+        rotate_x = [[1, 0, 0, 0], [0, cos, -sen, 0], [0, sen, cos, 0], [0, 0, 0, 1]]
+
+        rotate_x_centroide = Mat4.mul(rotate_x, trans_centroide_ida)
+        trans_centroide_volta = Mat4.trans(centroide[0], centroide[1], centroide[2])
+
+
+        return(Mat4.mul(trans_centroide_volta, rotate_x_centroide))
 
     @staticmethod
     def mul(mat1, mat2):
@@ -268,7 +296,7 @@ class Cubo:
 
         self.vertices_modelo_transformados = novos_vertices
         self.atualizar_normais()
-        self.calcular_centroide()
+        self.centroide = self.calcular_centroide()
 
     def atualizar_normais(self):
         # 1. Calcular e normalizar as normais das faces
@@ -325,7 +353,7 @@ class Cubo:
         cx = soma_x / num_vertices
         cy = soma_y / num_vertices
         cz = soma_z / num_vertices
-
+    
         return cx, cy, cz
 
     # So precisamos de um vértice e a medida do lado pra definir um cubo

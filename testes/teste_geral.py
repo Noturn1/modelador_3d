@@ -6,7 +6,7 @@ def executar_teste_renderizacao():
     print("=== Iniciando Teste de Renderização 3D ===")
 
     # 1. Configuração da Tela (100x100)
-    largura, altura = 100, 100
+    largura, altura = 1600, 900
     cena = Cena(altura, largura)
 
     # 2. Criar um Cubo Menor (Lado 10) para evitar clipping excessivo
@@ -19,23 +19,23 @@ def executar_teste_renderizacao():
 
     
     # Aplicar rotação para ver as faces superior, frontal e lateral
-    mat_transform = Mat4.mul(Mat4.rotate_x(0), Mat4.rotate_z(45))
-    mat_transform = Mat4.mul(mat_transform,Mat4.trans(0, -10, 0))
+    mat_transform = Mat4.mul(Mat4.rotate_x(45, cubo.centroide), Mat4.rotate_y(0, cubo.centroide))
+    mat_transform = Mat4.mul(mat_transform,Mat4.trans(-cubo.centroide[0], -cubo.centroide[1], -cubo.centroide[2]))
     cubo.aplicar_transformacao(mat_transform)
     
     cena.adicionar_objeto(cubo)
 
     cam = Camera(
-        vrp=[-40, -40, -40],  # Ponto de observação (octante negativo)
+        vrp=[0, 0, -40],  # Ponto de observação (octante negativo)
         prp=[0, 0, 0],
         vpn=[0, 0, 1],
         vup=[0, 1, 0],
-        P=[10, 10, 10],       # Alvo: Centro do cubo para mantê-lo centralizado
+        P=[0, 0, 0],       # Alvo: Centro do cubo para mantê-lo centralizado
         Y=[0, 1, 0],
         # Janela apertada (-15 a 15) para o cubo de lado 20 parecer "grande"
         u_min=-15, u_max=15, 
         v_min=-15, v_max=15, 
-        DP=50,                # Distância Focal (Zoom)
+        DP=20,                # Distância Focal (Zoom)
         near=1, far=200,
         Vres=altura, Hres=largura
     )

@@ -4,5 +4,5 @@ testes/__pycache__/*
 gitignore
 testes/teste_pipeline.py
 teste/teste_trans.py
-
-
+.python-version
+*.png

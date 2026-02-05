@@ -6,7 +6,8 @@ from .logica import Cena, Cubo, Luz, Mat4, Camera, Vector, Pipeline
 
 class JanelaMateriais:
     """Janela flutuante para editar materiais do cubo"""
-    def __init__(self, parent, callback, on_close=None):
+    # ALTERAÇÃO 1: Adicionado parametro materiais_iniciais=None
+    def __init__(self, parent, callback, on_close=None, materiais_iniciais=None):
         self.callback = callback
         self.on_close = on_close if on_close is not None else lambda: None
         self.janela = tk.Toplevel(parent)
@@ -15,10 +16,15 @@ class JanelaMateriais:
         self.janela.resizable(False, False)
         self.janela.protocol("WM_DELETE_WINDOW", self._fechar)
         
-        # Valores padrões
-        self.ka_default = [0.2, 0.2, 0.2]
-        self.kd_default = [0.8, 0.8, 0.8]
-        self.ks_default = [1.0, 1.0, 1.0, 50]
+        # Valores padrões ou herdados do cubo selecionado
+        if materiais_iniciais:
+            self.ka_default = materiais_iniciais['ka']
+            self.kd_default = materiais_iniciais['kd']
+            self.ks_default = materiais_iniciais['ks']
+        else:
+            self.ka_default = [0.2, 0.2, 0.2]
+            self.kd_default = [0.8, 0.8, 0.8]
+            self.ks_default = [1.0, 1.0, 1.0, 50]
         
         # Ambiente (Ka)
         tk.Label(self.janela, text="Ka (Ambiente) RGB:", font=("Arial", 10, "bold")).pack(pady=(10, 5))
@@ -197,8 +203,8 @@ class InterfaceModelador:
         self.root.title("Modelador 3D - Pipeline Alvy-Ray-Smith")
 
         # Configuração da Janela
-        self.largura = 1280
-        self.altura = 720
+        self.largura = 1200
+        self.altura = 600
         self.root.geometry(f"{self.largura}x{self.altura}")
         self.root.resizable(False, False)
 
@@ -213,7 +219,7 @@ class InterfaceModelador:
             self.frame_controles_wrapper,
             bg="lightgray",
             highlightthickness=0,
-            width=260
+            width=360
         )
         self.scrollbar_controles = tk.Scrollbar(
             self.frame_controles_wrapper,
@@ -419,6 +425,15 @@ class InterfaceModelador:
             font=("Arial", 12)
         )
         btn_editar_luz.pack(side=tk.LEFT, padx=2)
+
+        # ALTERAÇÃO 2: Novo botão logo abaixo do frame de luzes
+        btn_edit_mat_cubo = tk.Button(
+            self.painel_controles,
+            text="Editar Cubo Selecionado",
+            command=self.abrir_edicao_cubo_selecionado,
+            bg="lightgray"
+        )
+        btn_edit_mat_cubo.pack(pady=5)
 
         btn_limpar = tk.Button(
             self.painel_controles,
@@ -657,6 +672,36 @@ class InterfaceModelador:
             self.aplicar_materiais,
             on_close=self._fechar_janela_materiais
         )
+
+    # ALTERAÇÃO 3: Métodos para abrir janela de edição e aplicar mudanças
+    def abrir_edicao_cubo_selecionado(self):
+        if not self.cubo_selecionado:
+            messagebox.showwarning("Aviso", "Selecione um cubo na lista primeiro!")
+            return
+        
+        # Prepara os valores atuais do cubo
+        mat_atuais = {
+            "ka": self.cubo_selecionado.ka,
+            "kd": self.cubo_selecionado.kd,
+            "ks": self.cubo_selecionado.ks
+        }
+        
+        # Abre a janela passando os materiais atuais e o callback específico
+        JanelaMateriais(
+            self.root, 
+            self.aplicar_edicao_cubo, 
+            materiais_iniciais=mat_atuais
+        )
+
+    def aplicar_edicao_cubo(self, materiais):
+        if self.cubo_selecionado:
+            self.cubo_selecionado.ka = materiais["ka"]
+            self.cubo_selecionado.kd = materiais["kd"]
+            # ks vem com 4 valores (incluindo o expoente 50), o cubo aceita
+            self.cubo_selecionado.ks = materiais["ks"]
+            
+            self.atualizar_cena()
+            messagebox.showinfo("Sucesso", "Material do cubo atualizado!")
 
     def _fechar_janela_materiais(self):
         self.janela_materiais = None

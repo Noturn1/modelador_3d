@@ -197,21 +197,50 @@ class InterfaceModelador:
         self.root.title("Modelador 3D - Pipeline Alvy-Ray-Smith")
 
         # Configuração da Janela
-        self.largura = 1000
-        self.altura = 600
+        self.largura = 1280
+        self.altura = 720
         self.root.geometry(f"{self.largura}x{self.altura}")
         self.root.resizable(False, False)
 
         # Configuração do painel principal
         self.painel_principal = tk.Frame(root)
         self.painel_principal.pack(fill=tk.BOTH, expand=True)
+        # Painel de controles com rolagem
+        self.frame_controles_wrapper = tk.Frame(self.painel_principal, bg="lightgray")
+        self.frame_controles_wrapper.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.canvas_controles = tk.Canvas(
+            self.frame_controles_wrapper,
+            bg="lightgray",
+            highlightthickness=0,
+            width=260
+        )
+        self.scrollbar_controles = tk.Scrollbar(
+            self.frame_controles_wrapper,
+            orient=tk.VERTICAL,
+            command=self.canvas_controles.yview
+        )
+
         self.painel_controles = tk.Frame(
-            self.painel_principal, 
+            self.canvas_controles,
             bg="lightgray"
         )
 
-        # Criação do painel de controles
-        self.painel_controles.pack(side=tk.RIGHT, fill=tk.Y)
+        self.painel_controles.bind(
+            "<Configure>",
+            lambda e: self.canvas_controles.configure(scrollregion=self.canvas_controles.bbox("all"))
+        )
+
+        self.canvas_controles.create_window((0, 0), window=self.painel_controles, anchor="nw")
+        self.canvas_controles.configure(yscrollcommand=self.scrollbar_controles.set)
+
+        def _on_mousewheel(event):
+            self.canvas_controles.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        self.canvas_controles.bind_all("<MouseWheel>", _on_mousewheel)
+
+        self.canvas_controles.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.scrollbar_controles.pack(side=tk.RIGHT, fill=tk.Y)
 
         # Adicionando Canvas para painel principal
         self.canvas = tk.Canvas(
@@ -219,6 +248,19 @@ class InterfaceModelador:
             bg="white"
         )
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.camera_config = {
+            "vrp": [0, 0, 40],
+            "prp": [0, 0, 0],
+            "vpn": [0, 0, 1],
+            "vup": [0, 1, 0],
+            "P": [0, 0, 0],
+            "Y": [0, 1, 0],
+            "u_min": -141, "u_max": 141,
+            "v_min": -100, "v_max": 100,
+            "DP": 100,
+            "near": 1, "far": 200,
+        }
 
         # Configurando painel de controles
         self._criar_painel_controles()
@@ -248,16 +290,17 @@ class InterfaceModelador:
         )
 
         self.camera = Camera(
-            vrp=[30, 30, 30],
-            prp=[0, 0, 0],
-            vpn=[0, 0, 1],
-            vup=[0, 1, 0],
-            P=[0, 0, 0],
-            Y=[0, 1, 0],
-            u_min=-20, u_max=20, 
-            v_min=-20, v_max=20, 
-            DP=20,
-            near=1, far=200,
+            vrp=self.camera_config["vrp"],
+            prp=self.camera_config["prp"],
+            vpn=self.camera_config["vpn"],
+            vup=self.camera_config["vup"],
+            P=self.camera_config["P"],
+            Y=self.camera_config["Y"],
+            # proporção da tela 1.415:1
+            u_min=self.camera_config["u_min"], u_max=self.camera_config["u_max"], 
+            v_min=self.camera_config["v_min"], v_max=self.camera_config["v_max"], 
+            DP=self.camera_config["DP"],
+            near=self.camera_config["near"], far=self.camera_config["far"],
             Vres=altura_canvas, Hres=largura_canvas
         )
         self.cena.definir_camera(self.camera)
@@ -265,6 +308,7 @@ class InterfaceModelador:
         # Controle de seleção de cubos
         self.cubo_selecionado = None
         self.mostrar_grade = False  # Controle para exibir grade 3D
+        self.modo_shader = 2  # 1 = Flat, 2 = Phong
         
         # Materiais do cubo (padrões)
         self.materiais_cubo = {
@@ -279,6 +323,20 @@ class InterfaceModelador:
         self.tipo_luz = Luz.DIRECIONAL
         self.janela_materiais = None
         self.janela_luz = None
+
+        self.root.bind("<Up>", lambda event: self.mover_objeto(dx=0, dy=5, dz=0))
+        self.root.bind("<Down>", lambda event: self.mover_objeto(dx=0, dy=-5, dz=0))
+        self.root.bind("<Left>", lambda event: self.mover_objeto(dx=-5, dy=0, dz=0))
+        self.root.bind("<Right>", lambda event: self.mover_objeto(dx=5, dy=0, dz=0))
+        self.root.bind("<Shift-Up>", lambda event: self.mover_objeto(dx=0, dy=0, dz=-5))
+        self.root.bind("<Shift-Down>", lambda event: self.mover_objeto(dx=0, dy=0, dz=5))
+        self.root.bind("<d>", lambda event: self.rotacionar_objeto(eixo='y', tetha=5))
+        self.root.bind("<a>", lambda event: self.rotacionar_objeto(eixo='y', tetha=-5))
+        self.root.bind("<s>", lambda event: self.rotacionar_objeto(eixo='x', tetha=5))
+        self.root.bind("<w>", lambda event: self.rotacionar_objeto(eixo='x', tetha=-5))
+        self.root.bind("<q>", lambda event: self.rotacionar_objeto(eixo='z', tetha=5))
+        self.root.bind("<e>", lambda event: self.rotacionar_objeto(eixo='z', tetha=-5))
+
 
         self.root.after(0, self.atualizar_cena)
 
@@ -388,62 +446,203 @@ class InterfaceModelador:
         )
         self.lista_objetos.pack(pady=5)
         self.lista_objetos.bind('<<ListboxSelect>>', self.selecionar_objeto_lista)
+        self.lista_objetos.bind("<FocusIn>", lambda event: self.root.focus())
 
-        # Controles de movimentação (cruz direcional)
+        # Controles de escala (X, Y, Z)
         tk.Label(
             self.painel_controles,
-            text="Mover Objeto",
+            text="Escalar Objeto",
             bg="lightgray",
             font=("Arial", 11, "bold")
         ).pack(pady=(10, 5))
         
-        frame_movimento = tk.Frame(self.painel_controles, bg="lightgray")
-        frame_movimento.pack(pady=5)
-        
-        # Botão Cima (↑)
-        btn_cima = tk.Button(
-            frame_movimento,
-            text="▲",
-            width=4,
-            height=2,
-            font=("Arial", 14),
-            command=lambda: self.mover_objeto(dx=0, dy=5, dz=0)
-        )
-        btn_cima.grid(row=0, column=1, padx=2, pady=2)
-        
-        # Botão Esquerda (←)
-        btn_esquerda = tk.Button(
-            frame_movimento,
-            text="◄",
-            width=4,
-            height=2,
-            font=("Arial", 14),
-            command=lambda: self.mover_objeto(dx=-5, dy=0, dz=0)
-        )
-        btn_esquerda.grid(row=1, column=0, padx=2, pady=2)
-        
-        # Botão Direita (→)
-        btn_direita = tk.Button(
-            frame_movimento,
-            text="►",
-            width=4,
-            height=2,
-            font=("Arial", 14),
-            command=lambda: self.mover_objeto(dx=5, dy=0, dz=0)
-        )
-        btn_direita.grid(row=1, column=2, padx=2, pady=2)
-        
-        # Botão Baixo (▼)
-        btn_baixo = tk.Button(
-            frame_movimento,
-            text="▼",
-            width=4,
-            height=2,
-            font=("Arial", 14),
-            command=lambda: self.mover_objeto(dx=0, dy=-5, dz=0)
-        )
-        btn_baixo.grid(row=2, column=1, padx=2, pady=2)
+        frame_escala = tk.Frame(self.painel_controles, bg="lightgray")
+        frame_escala.pack(pady=5)
 
+        tk.Label(frame_escala, text="X", bg="lightgray", font=("Arial", 10, "bold")).grid(row=0, column=0, padx=6)
+        tk.Label(frame_escala, text="Y", bg="lightgray", font=("Arial", 10, "bold")).grid(row=0, column=1, padx=6)
+        tk.Label(frame_escala, text="Z", bg="lightgray", font=("Arial", 10, "bold")).grid(row=0, column=2, padx=6)
+
+        btn_x_mais = tk.Button(
+            frame_escala,
+            text="+",
+            width=4,
+            height=2,
+            font=("Arial", 14),
+            command=lambda: self.escala_objeto(1.1, 1.0, 1.0)
+        )
+        btn_x_mais.grid(row=1, column=0, padx=4, pady=2)
+
+        btn_y_mais = tk.Button(
+            frame_escala,
+            text="+",
+            width=4,
+            height=2,
+            font=("Arial", 14),
+            command=lambda: self.escala_objeto(1.0, 1.1, 1.0)
+        )
+        btn_y_mais.grid(row=1, column=1, padx=4, pady=2)
+
+        btn_z_mais = tk.Button(
+            frame_escala,
+            text="+",
+            width=4,
+            height=2,
+            font=("Arial", 14),
+            command=lambda: self.escala_objeto(1.0, 1.0, 1.1)
+        )
+        btn_z_mais.grid(row=1, column=2, padx=4, pady=2)
+
+        btn_x_menos = tk.Button(
+            frame_escala,
+            text="-",
+            width=4,
+            height=2,
+            font=("Arial", 14),
+            command=lambda: self.escala_objeto(0.9, 1.0, 1.0)
+        )
+        btn_x_menos.grid(row=2, column=0, padx=4, pady=2)
+
+        btn_y_menos = tk.Button(
+            frame_escala,
+            text="-",
+            width=4,
+            height=2,
+            font=("Arial", 14),
+            command=lambda: self.escala_objeto(1.0, 0.9, 1.0)
+        )
+        btn_y_menos.grid(row=2, column=1, padx=4, pady=2)
+
+        btn_z_menos = tk.Button(
+            frame_escala,
+            text="-",
+            width=4,
+            height=2,
+            font=("Arial", 14),
+            command=lambda: self.escala_objeto(1.0, 1.0, 0.9)
+        )
+        btn_z_menos.grid(row=2, column=2, padx=4, pady=2)
+
+        # Parâmetros da câmera
+        tk.Label(
+            self.painel_controles,
+            text="Parâmetros da Câmera",
+            bg="lightgray",
+            font=("Arial", 11, "bold")
+        ).pack(pady=(10, 5))
+
+        frame_camera = tk.Frame(self.painel_controles, bg="lightgray")
+        frame_camera.pack(pady=5)
+
+        def _fmt_vec(v):
+            return f"{v[0]}, {v[1]}, {v[2]}"
+
+        tk.Label(frame_camera, text="VRP", bg="lightgray").grid(row=0, column=0, sticky="e", padx=4, pady=2)
+        self.entry_vrp = tk.Entry(frame_camera, width=18)
+        self.entry_vrp.insert(0, _fmt_vec(self.camera_config["vrp"]))
+        self.entry_vrp.grid(row=0, column=1, padx=4, pady=2)
+
+        tk.Label(frame_camera, text="PRP", bg="lightgray").grid(row=1, column=0, sticky="e", padx=4, pady=2)
+        self.entry_prp = tk.Entry(frame_camera, width=18)
+        self.entry_prp.insert(0, _fmt_vec(self.camera_config["prp"]))
+        self.entry_prp.grid(row=1, column=1, padx=4, pady=2)
+
+        tk.Label(frame_camera, text="VPN", bg="lightgray").grid(row=2, column=0, sticky="e", padx=4, pady=2)
+        self.entry_vpn = tk.Entry(frame_camera, width=18)
+        self.entry_vpn.insert(0, _fmt_vec(self.camera_config["vpn"]))
+        self.entry_vpn.grid(row=2, column=1, padx=4, pady=2)
+
+        tk.Label(frame_camera, text="VUP", bg="lightgray").grid(row=3, column=0, sticky="e", padx=4, pady=2)
+        self.entry_vup = tk.Entry(frame_camera, width=18)
+        self.entry_vup.insert(0, _fmt_vec(self.camera_config["vup"]))
+        self.entry_vup.grid(row=3, column=1, padx=4, pady=2)
+
+        tk.Label(frame_camera, text="P", bg="lightgray").grid(row=4, column=0, sticky="e", padx=4, pady=2)
+        self.entry_p = tk.Entry(frame_camera, width=18)
+        self.entry_p.insert(0, _fmt_vec(self.camera_config["P"]))
+        self.entry_p.grid(row=4, column=1, padx=4, pady=2)
+
+        tk.Label(frame_camera, text="Y", bg="lightgray").grid(row=5, column=0, sticky="e", padx=4, pady=2)
+        self.entry_y_cam = tk.Entry(frame_camera, width=18)
+        self.entry_y_cam.insert(0, _fmt_vec(self.camera_config["Y"]))
+        self.entry_y_cam.grid(row=5, column=1, padx=4, pady=2)
+
+        tk.Label(frame_camera, text="u_min", bg="lightgray").grid(row=6, column=0, sticky="e", padx=4, pady=2)
+        self.entry_u_min = tk.Entry(frame_camera, width=8)
+        self.entry_u_min.insert(0, str(self.camera_config["u_min"]))
+        self.entry_u_min.grid(row=6, column=1, sticky="w", padx=(4, 8), pady=2)
+
+        tk.Label(frame_camera, text="u_max", bg="lightgray").grid(row=6, column=2, sticky="e", padx=4, pady=2)
+        self.entry_u_max = tk.Entry(frame_camera, width=8)
+        self.entry_u_max.insert(0, str(self.camera_config["u_max"]))
+        self.entry_u_max.grid(row=6, column=3, sticky="w", padx=(4, 2), pady=2)
+
+        tk.Label(frame_camera, text="v_min", bg="lightgray").grid(row=7, column=0, sticky="e", padx=4, pady=2)
+        self.entry_v_min = tk.Entry(frame_camera, width=8)
+        self.entry_v_min.insert(0, str(self.camera_config["v_min"]))
+        self.entry_v_min.grid(row=7, column=1, sticky="w", padx=(4, 8), pady=2)
+
+        tk.Label(frame_camera, text="v_max", bg="lightgray").grid(row=7, column=2, sticky="e", padx=4, pady=2)
+        self.entry_v_max = tk.Entry(frame_camera, width=8)
+        self.entry_v_max.insert(0, str(self.camera_config["v_max"]))
+        self.entry_v_max.grid(row=7, column=3, sticky="w", padx=(4, 2), pady=2)
+
+        tk.Label(frame_camera, text="DP", bg="lightgray").grid(row=8, column=0, sticky="e", padx=4, pady=2)
+        self.entry_dp = tk.Entry(frame_camera, width=8)
+        self.entry_dp.insert(0, str(self.camera_config["DP"]))
+        self.entry_dp.grid(row=8, column=1, sticky="w", padx=(4, 8), pady=2)
+
+        tk.Label(frame_camera, text="near", bg="lightgray").grid(row=8, column=2, sticky="e", padx=4, pady=2)
+        self.entry_near = tk.Entry(frame_camera, width=8)
+        self.entry_near.insert(0, str(self.camera_config["near"]))
+        self.entry_near.grid(row=8, column=3, sticky="w", padx=(4, 2), pady=2)
+
+        tk.Label(frame_camera, text="far", bg="lightgray").grid(row=9, column=0, sticky="e", padx=4, pady=2)
+        self.entry_far = tk.Entry(frame_camera, width=8)
+        self.entry_far.insert(0, str(self.camera_config["far"]))
+        self.entry_far.grid(row=9, column=1, sticky="w", padx=(4, 2), pady=2)
+
+        btn_aplicar_camera = tk.Button(
+            self.painel_controles,
+            text="Aplicar Câmera",
+            command=self.aplicar_parametros_camera,
+            bg="gray",
+            fg="white",
+            font=("Arial", 11),
+            width=20
+        )
+        btn_aplicar_camera.pack(pady=(5, 10))
+
+        # Seletor de modo de iluminação
+        tk.Label(
+            self.painel_controles,
+            text="Modo de Iluminação",
+            bg="lightgray",
+            font=("Arial", 11, "bold")
+        ).pack(pady=(10, 5))
+
+        frame_shader = tk.Frame(self.painel_controles, bg="lightgray")
+        frame_shader.pack(pady=5)
+
+        self.shader_var = tk.IntVar(value=2)  # 1=Flat, 2=Phong
+
+        tk.Radiobutton(
+            frame_shader,
+            text="Flat",
+            variable=self.shader_var,
+            value=1,
+            bg="lightgray",
+            command=self.alterar_modo_iluminacao
+        ).pack(side=tk.LEFT, padx=10)
+
+        tk.Radiobutton(
+            frame_shader,
+            text="Phong",
+            variable=self.shader_var,
+            value=2,
+            bg="lightgray",
+            command=self.alterar_modo_iluminacao
+        ).pack(side=tk.LEFT, padx=10)
     
     def abrir_janela_materiais(self):
         """
@@ -512,12 +711,18 @@ class InterfaceModelador:
             ks=self.materiais_cubo["ks"]
         )
         self.cena.adicionar_objeto(cubo)
-        centroide = cubo.centroide
-        # Adicionar à lista visual
-        num_cubo = len(self.cena.objetos)                  # Pos: ({x}, {y}, {z})")
-        self.lista_objetos.insert(tk.END, f"Cubo {num_cubo} - Pos: ({centroide[0]}, {centroide[1]}, {centroide[2]})")
         
+        self.atualizar_lista_objetos()
         self.atualizar_cena()
+
+    def atualizar_lista_objetos(self):
+        """
+        Atualiza a lista de objetos com as posições atualizadas dos centroides.
+        """
+        self.lista_objetos.delete(0, tk.END)
+        for i, obj in enumerate(self.cena.objetos):
+            centroide = obj.centroide
+            self.lista_objetos.insert(tk.END, f"Cubo {i+1} - Pos: ({centroide[0]:.1f}, {centroide[1]:.1f}, {centroide[2]:.1f})")
 
     def mover_objeto(self, dx, dy, dz):
         """
@@ -531,7 +736,120 @@ class InterfaceModelador:
         mat_trans = Mat4.trans(dx, dy, dz)
         self.cubo_selecionado.aplicar_transformacao(mat_trans)
         
+        self.atualizar_lista_objetos()
         self.atualizar_cena()
+
+    def rotacionar_objeto(self, eixo, tetha):
+        """
+        Rotaciona o objeto selecionado em torno do eixo especificado.
+        """
+        if self.cubo_selecionado is None:
+            messagebox.showwarning("Aviso", "Nenhum cubo selecionado!")
+            return
+        
+        if eixo == 'x':
+            mat_rot = Mat4.rotate_x(tetha=tetha, centroide=self.cubo_selecionado.centroide)
+        elif eixo == 'y':
+            mat_rot = Mat4.rotate_y(tetha=tetha, centroide=self.cubo_selecionado.centroide)
+        elif eixo == 'z':
+            mat_rot = Mat4.rotate_z(tetha=tetha, centroide=self.cubo_selecionado.centroide)
+        else:
+            messagebox.showerror("Erro", "Eixo inválido para rotação!")
+            return
+        
+        self.cubo_selecionado.aplicar_transformacao(mat_rot)
+        
+        self.atualizar_lista_objetos()
+        self.atualizar_cena()
+
+    def escala_objeto(self, sx, sy, sz):
+        """
+        Escala o objeto selecionado pelos fatores especificados.
+        """
+        if self.cubo_selecionado is None:
+            messagebox.showwarning("Aviso", "Nenhum cubo selecionado!")
+            return
+        
+        mat_escala = Mat4.scale(sx, sy, sz, centroide=self.cubo_selecionado.centroide)
+        self.cubo_selecionado.aplicar_transformacao(mat_escala)
+        
+        self.atualizar_lista_objetos()
+        self.atualizar_cena()
+
+    def alterar_modo_iluminacao(self):
+        """
+        Altera o modo de iluminação entre Flat e Phong.
+        """
+        self.modo_shader = self.shader_var.get()
+        self.atualizar_cena()
+
+    def _parse_vector_entry(self, entry, nome):
+        texto = entry.get().strip()
+        partes = [p.strip() for p in texto.split(",") if p.strip() != ""]
+        if len(partes) != 3:
+            raise ValueError(f"{nome} deve ter 3 valores (ex: 0, 0, 40)")
+        return [float(partes[0]), float(partes[1]), float(partes[2])]
+
+    def aplicar_parametros_camera(self):
+        """
+        Aplica os parâmetros da câmera informados nos campos.
+        """
+        try:
+            vrp = self._parse_vector_entry(self.entry_vrp, "VRP")
+            prp = self._parse_vector_entry(self.entry_prp, "PRP")
+            vpn = self._parse_vector_entry(self.entry_vpn, "VPN")
+            vup = self._parse_vector_entry(self.entry_vup, "VUP")
+            p = self._parse_vector_entry(self.entry_p, "P")
+            y = self._parse_vector_entry(self.entry_y_cam, "Y")
+
+            u_min = float(self.entry_u_min.get())
+            u_max = float(self.entry_u_max.get())
+            v_min = float(self.entry_v_min.get())
+            v_max = float(self.entry_v_max.get())
+            dp = float(self.entry_dp.get())
+            near = float(self.entry_near.get())
+            far = float(self.entry_far.get())
+
+            if near <= 0 or far <= 0 or near >= far:
+                messagebox.showerror("Erro", "Parâmetros inválidos: near deve ser menor que far e ambos > 0.")
+                return
+
+            self.camera_config = {
+                "vrp": vrp,
+                "prp": prp,
+                "vpn": vpn,
+                "vup": vup,
+                "P": p,
+                "Y": y,
+                "u_min": u_min,
+                "u_max": u_max,
+                "v_min": v_min,
+                "v_max": v_max,
+                "DP": dp,
+                "near": near,
+                "far": far,
+            }
+            self.camera = Camera(
+                vrp=self.camera_config["vrp"],
+                prp=self.camera_config["prp"],
+                vpn=self.camera_config["vpn"],
+                vup=self.camera_config["vup"],
+                P=self.camera_config["P"],
+                Y=self.camera_config["Y"],
+                u_max=self.camera_config["u_max"],
+                u_min=self.camera_config["u_min"],
+                v_max=self.camera_config["v_max"],
+                v_min=self.camera_config["v_min"],
+                DP=self.camera_config["DP"],
+                near=self.camera_config["near"],
+                far=self.camera_config["far"],
+                Vres=self.camera.Vres,
+                Hres=self.camera.Hres,
+            )
+            self.cena.definir_camera(self.camera)
+            self.atualizar_cena()
+        except ValueError as exc:
+            messagebox.showerror("Erro", f"Valores inválidos: {exc}")
 
     def adicionar_luz(self, x: int = 0, y: int = 0, z: int = 0):
         """
@@ -572,6 +890,7 @@ class InterfaceModelador:
         pass
 
     def atualizar_cena(self):
+        self.cena.modo_shader = self.modo_shader
         self.cena.renderizar()
         self._mostrar_cena_no_canvas()
 
@@ -611,118 +930,6 @@ class InterfaceModelador:
         self._imagem_canvas = ImageTk.PhotoImage(img)
         self.canvas.delete("all")
         self.canvas.create_image(0, 0, anchor=tk.NW, image=self._imagem_canvas)
-        
-        # Desenhar grade 3D por cima da cena renderizada
-        if self.mostrar_grade:
-            self._desenhar_grade_3d()
-
-    def _desenhar_grade_3d(self):
-        """
-        Desenha uma grade 3D no canvas usando as projeções da câmera.
-        """
-        # Criar linhas da grade no espaço 3D
-        tamanho_grade = 40
-        espacamento = 5
-        
-        # Obter matrizes de projeção
-        mat_A = Pipeline.get_matrix_A(self.camera.vrp)
-        mat_B = Pipeline.get_matrix_B(self.camera.u, self.camera.v, self.camera.n)
-        mat_C = Pipeline.get_matrix_C(self.camera.Cu, self.camera.Cv, self.camera.DP)
-        mat_D = Pipeline.get_matrix_D(
-            self.camera.Su, self.camera.Sv, self.camera.DP, self.camera.far
-        )
-        mat_P = Pipeline.get_matrix_P(self.camera.far, self.camera.near)
-        
-        mat_J = Pipeline.get_matrix_J()
-        mat_K = Pipeline.get_matrix_K()
-        mat_L = Pipeline.get_matrix_L(
-            self.cena.viewport["x_max"],
-            self.cena.viewport["x_min"],
-            self.cena.viewport["y_max"],
-            self.cena.viewport["y_min"],
-            self.camera.z_max,
-            self.camera.z_min,
-        )
-        mat_M = Pipeline.get_matrix_M()
-        
-        m_view = Mat4.mul(mat_B, mat_A)
-        m_proj = Mat4.mul(mat_P, Mat4.mul(mat_D, mat_C))
-        m_total_proj = Mat4.mul(m_proj, m_view)
-        m_screen = Mat4.mul(mat_M, Mat4.mul(mat_L, Mat4.mul(mat_K, mat_J)))
-        
-        def projetar_ponto(x, y, z):
-            """Projeta um ponto 3D para coordenadas de tela com validação"""
-            try:
-                v_mundo = [x, y, z, 1.0]
-                v_clip = Vector.mul(m_total_proj, v_mundo)
-                w = v_clip[3]
-                
-                # Verificar se o ponto está muito próximo ou atrás da câmera
-                if abs(w) < 0.001:
-                    return None
-                
-                v_ndc = [v_clip[0] / w, v_clip[1] / w, v_clip[2] / w, 1.0]
-                
-                # Verificar se está dentro do volume de visualização
-                if abs(v_ndc[0]) > 2 or abs(v_ndc[1]) > 2 or v_ndc[2] < 0 or v_ndc[2] > 1:
-                    return None
-                
-                v_tela = Vector.mul(m_screen, v_ndc)
-                px, py = int(v_tela[0]), int(v_tela[1])
-                
-                # Validar limites da tela
-                if px < -1000 or px > self.cena.width + 1000 or py < -1000 or py > self.cena.height + 1000:
-                    return None
-                
-                return px, py
-            except:
-                return None
-        
-        # Desenhar linhas paralelas ao eixo X (no plano Y=0)
-        for z in range(-tamanho_grade, tamanho_grade + 1, espacamento):
-            p1 = projetar_ponto(-tamanho_grade, 0, z)
-            p2 = projetar_ponto(tamanho_grade, 0, z)
-            
-            if p1 and p2:
-                cor = "red" if z == 0 else "#ff9999"
-                largura = 2 if z == 0 else 1
-                self.canvas.create_line(p1[0], p1[1], p2[0], p2[1], 
-                                       fill=cor, width=largura, 
-                                       dash=() if z == 0 else (3, 3))
-        
-        # Desenhar linhas paralelas ao eixo Z (no plano Y=0)
-        for x in range(-tamanho_grade, tamanho_grade + 1, espacamento):
-            p1 = projetar_ponto(x, 0, -tamanho_grade)
-            p2 = projetar_ponto(x, 0, tamanho_grade)
-            
-            if p1 and p2:
-                cor = "blue" if x == 0 else "#9999ff"
-                largura = 2 if x == 0 else 1
-                self.canvas.create_line(p1[0], p1[1], p2[0], p2[1], 
-                                       fill=cor, width=largura, 
-                                       dash=() if x == 0 else (3, 3))
-        
-        # Desenhar eixos principais 3D com setas
-        # Eixo X (vermelho)
-        p1 = projetar_ponto(-tamanho_grade, 0, 0)
-        p2 = projetar_ponto(tamanho_grade, 0, 0)
-        if p1 and p2:
-            self.canvas.create_line(p1[0], p1[1], p2[0], p2[1], 
-                                   fill="red", width=2, arrow=tk.LAST)
-        
-        # Eixo Y (verde)
-        p1 = projetar_ponto(0, -tamanho_grade, 0)
-        p2 = projetar_ponto(0, tamanho_grade, 0)
-        if p1 and p2:
-            self.canvas.create_line(p1[0], p1[1], p2[0], p2[1], 
-                                   fill="green", width=2, arrow=tk.LAST)
-        
-        # Eixo Z (azul)
-        p1 = projetar_ponto(0, 0, -tamanho_grade)
-        p2 = projetar_ponto(0, 0, tamanho_grade)
-        if p1 and p2:
-            self.canvas.create_line(p1[0], p1[1], p2[0], p2[1], 
-                                   fill="blue", width=2, arrow=tk.LAST)
 
 if __name__ == "__main__":
     root = tk.Tk()

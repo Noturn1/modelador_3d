@@ -432,7 +432,7 @@ class Camera:
         v = Vector.normalize(v_temp)
 
         # calcular vetor u (invertido pra usar a regra da mão direita)
-        u = Vector.normalize(Vector.cross_product(v, n))
+        u = Vector.normalize(Vector.cross_product(n, v))
 
         return u, v, n
 
@@ -489,28 +489,6 @@ class Camera:
         self.far = far  # Distância máxima (Z max)
 
 
-class VerticeWA:
-    # Estrutura auxiliar para as listas duplamente encadeadas do Weiler-Atherton
-    def __init__(self, x, y, z=0, normal=None):
-        self.x = x
-        self.y = y
-        self.z = z
-        self.normal = normal
-        self.is_intersecao = False
-        self.is_entrada = False  # True = Entrando no Clip, False = Saindo
-        self.visitado = False
-        self.proximo = None  # Ponteiro para o próximo vértice na lista do polígono
-        self.proximo_clip = None  # Ponteiro para a lista da janela de recorte
-        self.alpha = 0.0  # Fator paramétrico (0 a 1) para ordenação de interseções
-
-    def __repr__(self):
-        tipo = "INT" if self.is_intersecao else "VERT"
-        dir = (
-            "(ENTRADA)" if self.is_entrada else "(SAIDA)" if self.is_intersecao else ""
-        )
-        return f"{tipo}: ({self.x:.1f}, {self.y:.1f}) {dir}"
-
-
 class RenderPoligon:
     # classe para definir o polígono renderizavel, guardando vertices do cubo após recorte
     # evitar mudar a classe cubo, pra não afetar o trabalho dos outros
@@ -563,6 +541,9 @@ class Cena:
         # Luz Ambiente Global (Ilumina todas as faces minimamente)
         self.ia = [0.1, 0.1, 0.1]  # Cinza escuro fraco
 
+        # Modo de shader para renderização
+        self.modo_shader = 2  # 1 = Flat, 2 = Phong
+
         # --- Buffers de Rasterização (Alocação de Memória) ---
         # ColorBuffer: Matriz width x height guardando tuplas (R, G, B)
         # Uma entrada para cada pixel
@@ -603,153 +584,106 @@ class Cena:
         novo_vertice.proximo = atual.proximo
         atual.proximo = novo_vertice
 
-    @staticmethod
-    def calcular_intersecao(p1, p2, p3, p4):
+    def _dentro_plano(self, v, plano):
         """
-        Calcula a interseção entre o segmento A (p1->p2) e B (p3->p4).
-        Retorna (x, y, t) ou None se não houver cruzamento.
+        Verifica se um vértice (x, y, z, w) está dentro do semi-espaço definido pelo plano.
+        Plano = (A, B, C, D) tal que Ax + By + Cz + Dw >= 0 é 'dentro'.
         """
-        denominador = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x)
+        # Produto escalar 4D: v . plano
+        dot = (v[0] * plano[0]) + (v[1] * plano[1]) + (v[2] * plano[2]) + (v[3] * plano[3])
+        # Usamos um epsilon negativo pequeno para tolerância
+        return dot >= -1e-5
 
+    def _intersecao_plano(self, anterior, atual, plano):
+        """
+        Calcula o vértice de interseção entre a aresta (anterior->atual) e o plano.
+        Retorna (ix, iy, iz, iw, inormal) interpolado.
+        """
+        # Distâncias dos pontos ao plano (produto escalar)
+        dist_ant = (anterior[0] * plano[0]) + (anterior[1] * plano[1]) + (anterior[2] * plano[2]) + (anterior[3] * plano[3])
+        dist_atu = (atual[0] * plano[0]) + (atual[1] * plano[1]) + (atual[2] * plano[2]) + (atual[3] * plano[3])
+
+        # Fator t (0.0 a 1.0) onde a interseção ocorre
+        # t = dist_ant / (dist_ant - dist_atu)
+        denominador = dist_ant - dist_atu
         if abs(denominador) < 1e-6:
-            # as multíplicações de matriz geram muito erro de ponto flutuante
-            # acaba saindo muitos valores proximos de zero, que deveriam ser zero
-            # se não fizer isso, a conta aqui embaixo quebra pq divide por um numero muito pequenp
-            return None  # considera as linhas paralelas
+            return atual # Evita divisão por zero, retorna o ponto atual
 
-        # t = posição da interseção na reta 1 (Face)
-        t = (
-            (p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x)
-        ) / denominador
-        # u = posição da interseção na reta 2 (Janela)
-        u = (
-            (p1.x - p3.x) * (p1.y - p2.y) - (p1.y - p3.y) * (p1.x - p2.x)
-        ) / denominador
+        t = dist_ant / denominador
 
-        if 0.0 <= t <= 1.0 and 0.0 <= u <= 1.0:
-            int_x = p1.x + t * (p2.x - p1.x)
-            int_y = p1.y + t * (p2.y - p1.y)
-            # INTERPOLAÇÃO DE Z:
-            int_z = p1.z + t * (p2.z - p1.z)
-            return (int_x, int_y, int_z, t)  # Retorne o Z também
+        # Interpolação Linear (LERP) de x, y, z, w
+        ix = anterior[0] + t * (atual[0] - anterior[0])
+        iy = anterior[1] + t * (atual[1] - anterior[1])
+        iz = anterior[2] + t * (atual[2] - anterior[2])
+        iw = anterior[3] + t * (atual[3] - anterior[3])
 
-    def recorteWA(self, vertices_face_tela):
-        # passo 1: definir a janela de recorte
-        z_padrao = vertices_face_tela[0][2]
-        xmin = self.viewport["x_min"]
-        xmax = self.viewport["x_max"]
-        ymin = self.viewport["y_min"]
-        ymax = self.viewport["y_max"]
+        # Interpolação da Normal (se existir)
+        inormal = None
+        if len(anterior) > 4 and anterior[4] is not None and atual[4] is not None:
+            n1 = anterior[4]
+            n2 = atual[4]
+            nx = n1[0] + t * (n2[0] - n1[0])
+            ny = n1[1] + t * (n2[1] - n1[1])
+            nz = n1[2] + t * (n2[2] - n1[2])
+            inormal = (nx, ny, nz) # Não precisa normalizar agora, faremos no pixel shader
 
-        # cria os vértices da janela no sentido horário
-        janela = [
-            VerticeWA(xmin, ymin, z_padrao),  # v0: Fundo-Esq
-            VerticeWA(xmax, ymin, z_padrao),  # v1: Fundo-Dir
-            VerticeWA(xmax, ymax, z_padrao),  # v2: Topo-Dir
-            VerticeWA(xmin, ymax, z_padrao),  # v3: Topo-Esq
+        return (ix, iy, iz, iw, inormal)
+
+    def recorteSH(self, vertices_clip):
+        """
+        Algoritmo Sutherland-Hodgman 3D (Clip Space).
+        Recebe lista de vértices [(x, y, z, w, normal), ...].
+        Retorna lista recortada.
+        """
+        # Lista de planos de recorte no Clip Space (Ax + By + Cz + Dw = 0)
+        # O mais importante para evitar explosão é o NEAR PLANE.
+        # Na maioria das projeções: z + w >= 0 ou z >= -w
+        # Plano Near: (0, 0, 1, 1) -> 0x + 0y + 1z + 1w >= 0
+        
+        # Você pode adicionar os outros planos (laterais) aqui se quiser um recorte completo
+        planos = [
+            (0, 0, 1, 1),    # Near Plane (Corta o que está atrás da câmera)
+            (0, 0, -1, 1), # Far Plane (opcional)
+            (1, 0, 0, 1),  # Left Plane (opcional)
+            (-1, 0, 0, 1), # Right Plane (opcional)
+            (0, 1, 0, 1),  # Bottom Plane (opcional)
+            (0, -1, 0, 1)  # Top Plane (opcional)
         ]
-        # encadear os vértices da janela
-        for i in range(4):
-            janela[i].proximo = janela[(i + 1) % 4]
 
-        # passo 2: criar a lista da face com as normais
-        sujeito = []
-        for v in vertices_face_tela:
-            # v pode ser (x, y, z) ou (x, y, z, normal)
-            normal = v[3] if len(v) > 3 else None
-            sujeito.append(VerticeWA(v[0], v[1], v[2], normal=normal))
+        output_list = vertices_clip
 
-        for i in range(len(sujeito)):
-            sujeito[i].proximo = sujeito[(i + 1) % len(sujeito)]
+        for plano in planos:
+            input_list = output_list
+            output_list = []
+            
+            if not input_list:
+                break
 
-        # passo 3: calcular intercessões entre a janela e a face
-        for i in range(len(sujeito)):
-            p1 = sujeito[i]
-            p2 = sujeito[(i + 1) % len(sujeito)]
+            for i in range(len(input_list)):
+                atual = input_list[i]
+                anterior = input_list[(i - 1) % len(input_list)] # Pega o anterior (cíclico)
 
-            for j in range(4):
-                p3 = janela[j]
-                p4 = janela[(j + 1) % 4]
+                atual_dentro = self._dentro_plano(atual, plano)
+                anterior_dentro = self._dentro_plano(anterior, plano)
 
-                intersecao = self.calcular_intersecao(p1, p2, p3, p4)
+                if atual_dentro:
+                    if not anterior_dentro:
+                        # Saiu -> Entrou: Adiciona interseção E o atual
+                        interseccao = self._intersecao_plano(anterior, atual, plano)
+                        output_list.append(interseccao)
+                    
+                    # Entrou -> Entrou (ou Saiu -> Entrou): Adiciona o atual
+                    output_list.append(atual)
+                
+                elif anterior_dentro:
+                    # Entrou -> Saiu: Adiciona SOMENTE interseção
+                    interseccao = self._intersecao_plano(anterior, atual, plano)
+                    output_list.append(interseccao)
+                
+                # Se (não atual_dentro) e (não anterior_dentro): não faz nada (rejeita)
 
-                if intersecao:
-                    ix, iy, iz, t = intersecao
+        return output_list
 
-                    # Interpolar a normal usando o parâmetro t
-                    normal_interp = None
-                    if p1.normal is not None and p2.normal is not None:
-                        normal_interp = (
-                            p1.normal[0] * (1 - t) + p2.normal[0] * t,
-                            p1.normal[1] * (1 - t) + p2.normal[1] * t,
-                            p1.normal[2] * (1 - t) + p2.normal[2] * t
-                        )
-
-                    # 1. Cria o vértice para a lista da face
-                    int_sujeito = VerticeWA(ix, iy, iz, normal=normal_interp)
-                    int_sujeito.is_intersecao = True
-                    int_sujeito.alpha = t  # 't' da reta da face
-
-                    # 2. Cria o vértice (gêmeo) para a lista da Janela
-                    u = ((ix - p3.x) * (p4.x - p3.x) + (iy - p3.y) * (p4.y - p3.y)) / (
-                        (p4.x - p3.x) ** 2 + (p4.y - p3.y) ** 2
-                    )
-                    int_janela = VerticeWA(ix, iy, iz, normal=normal_interp)
-                    int_janela.is_intersecao = True
-                    int_janela.alpha = u  # 'u' da reta da janela
-
-                    # Linka os gêmeos (O "troca-trilho" do algoritmo)
-                    int_sujeito.proximo_clip = int_janela
-                    int_janela.proximo_clip = int_sujeito
-
-                    # Define Entrada/Saída
-                    p2_dentro = (xmin <= p2.x <= xmax) and (ymin <= p2.y <= ymax)
-                    int_sujeito.is_entrada = p2_dentro
-                    int_janela.is_entrada = p2_dentro
-
-                    # Insere nas listas
-                    self.inserir_vertice_ordenado(p1, p2, int_sujeito)
-                    self.inserir_vertice_ordenado(p3, p4, int_janela)
-
-        # passo 4: varrer a lista e ligar os poligonos
-        poligonos_recortados = []
-
-        atual = sujeito[0]
-        for _ in range(len(sujeito) * 2):  # Limite de segurança contra loops infinitos
-            if atual.is_intersecao and atual.is_entrada and not atual.visitado:
-                novo_poligono = []
-                p_nav = atual
-
-                while not p_nav.visitado:
-                    p_nav.visitado = True
-                    # Inclui normal para interpolação Phong
-                    novo_poligono.append((p_nav.x, p_nav.y, p_nav.z, p_nav.normal))
-
-                    if p_nav.is_intersecao:
-                        p_nav.proximo_clip.visitado = (
-                            True  # Marca o gêmeo como visitado
-                        )
-                        if p_nav.is_entrada:
-                            p_nav = p_nav.proximo  # ENTRADA: Segue o Sujeito
-                        else:
-                            p_nav = p_nav.proximo_clip.proximo  # SAÍDA: Segue a Janela
-                    else:
-                        p_nav = p_nav.proximo  # Vértice comum
-
-                poligonos_recortados.append(novo_poligono)
-
-            atual = atual.proximo
-
-        # CASO ESPECIAL: O polígono está 100% dentro da tela
-        if len(poligonos_recortados) == 0:
-            if (xmin <= sujeito[0].x <= xmax) and (ymin <= sujeito[0].y <= ymax):
-                # Inclui normal para interpolação Phong
-                poligono_3d = []
-                for v in vertices_face_tela:
-                    normal = v[3] if len(v) > 3 else None
-                    poligono_3d.append((v[0], v[1], v[2], normal))
-                return [poligono_3d]
-        return poligonos_recortados
 
     def _rasterizar_face(
         self, vertices_tela, shader_mode, cor_flat=None, material=None
@@ -928,16 +862,16 @@ class Cena:
         b = self.ia[2] * material.ka[2]
 
         # Posição do observador (assumindo que está em +Z infinito para simplificar)
-        # S = self.camera.vrp
-        S = (0, 0, 1)
+        S = self.camera.vrp
+        #S = (0, 0, 1)
 
         for luz in self.luzes:
             # Recupera direção da luz (considerando como direcional)
             # L é vetor contrário da direção da luz
             lx, ly, lz = (
-                -luz.posicao_ou_direcao[0],
-                -luz.posicao_ou_direcao[1],
-                -luz.posicao_ou_direcao[2],
+                luz.posicao_ou_direcao[0],
+                luz.posicao_ou_direcao[1],
+                luz.posicao_ou_direcao[2],
             )
 
             # Normaliza L
@@ -1042,26 +976,50 @@ class Cena:
                 # Se a face estiver visível:
                 if dot_vis > 0:
 
-                    # A. PROJEÇÃO (Mundo -> Tela)
-                    vertices_tela_brutos = []
+                # A. PREPARAÇÃO PARA CLIP SPACE (SEM DIVISÃO AINDA)
+                    vertices_clip_space = []
+                    
                     for idx in face.indices:
                         v_mundo = obj.vertices_modelo_transformados[idx]
-                        v_clip = Vector.mul(m_total_proj, v_mundo)
+                        # Transformação total até Clip Space
+                        v_clip = Vector.mul(m_total_proj, v_mundo) 
+                        
+                        # Normal do vértice (para passar pelo pipeline)
+                        normal_vert = obj.normais_vertices[idx]
+                        
+                        # Guardamos (x, y, z, w, normal)
+                        vertices_clip_space.append(
+                            (v_clip[0], v_clip[1], v_clip[2], v_clip[3], normal_vert)
+                        )
 
-                        w = v_clip[3] if v_clip[3] != 0 else 0.0001
-                        v_ndc = [v_clip[0] / w, v_clip[1] / w, v_clip[2] / w, 1.0]
+
+                    #B. Recorte 3D (Sutherland-Hodgeman)
+                    poly_clipado = self.recorteSH(vertices_clip_space)
+                    # Se o polígono foi totalmente cortado, ignoramos
+                    if len(poly_clipado) < 3:
+                        continue
+                    # C. DIVISÃO PERSPECTIVA E VIEWPORT
+                    vertices_tela_brutos = []
+                
+                    for v in poly_clipado:
+                        x, y, z, w, normal = v
+                        
+                        # Segurança extra: se w for muito pequeno (quase zero), travamos
+                        if w < 0.001: w = 0.001 
+                        
+                        # Divisão Perspectiva (Agora segura!)
+                        v_ndc = [x / w, y / w, z / w, 1.0]
+                        
+                        # Transformação de Viewport (NDC -> Tela)
                         v_tela = Vector.mul(m_screen, v_ndc)
-                        # Inclui a normal de vértice para interpolação Phong
-                        normal_vertice = obj.normais_vertices[idx]
-                        vertices_tela_brutos.append((v_tela[0], v_tela[1], v_tela[2], normal_vertice))
+                        
+                        # Adiciona na lista para o Weiler-Atherton (que fará apenas ajuste fino 2D)
+                        vertices_tela_brutos.append(
+                            (v_tela[0], v_tela[1], v_tela[2], normal)
+                        )
 
-                    # B. RECORTE (WEILER-ATHERTON)
-                    # Recebe os 4 pontos e devolve N polígonos recortados
-                    poligonos_recortados = self.recorteWA(vertices_tela_brutos)
-
-                    # C. PREPARAÇÃO PARA RASTERIZAR
-                    modo_shader = 2  # 1 = Flat, 2 = Phong
-
+                    modo_shader = self.modo_shader  # 1 = Flat, 2 = Phong
+                    poligonos_recortados = [vertices_tela_brutos]
                     for poligono in poligonos_recortados:
                         # O recorteWA devolve pontos 2D (x,y). Precisamos trazer o Z para o buffer.
                         # Assumimos o Z do primeiro vértice para a face 2D recortada.

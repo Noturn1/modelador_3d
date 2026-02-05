@@ -248,7 +248,7 @@ class InterfaceModelador:
         )
 
         self.camera = Camera(
-            vrp=[0, -10, 40],
+            vrp=[30, 30, 30],
             prp=[0, 0, 0],
             vpn=[0, 0, 1],
             vup=[0, 1, 0],
@@ -407,7 +407,7 @@ class InterfaceModelador:
             width=4,
             height=2,
             font=("Arial", 14),
-            command=lambda: self.mover_objeto(0, -5, 0)
+            command=lambda: self.mover_objeto(dx=0, dy=5, dz=0)
         )
         btn_cima.grid(row=0, column=1, padx=2, pady=2)
         
@@ -418,7 +418,7 @@ class InterfaceModelador:
             width=4,
             height=2,
             font=("Arial", 14),
-            command=lambda: self.mover_objeto(5, 0, 0)
+            command=lambda: self.mover_objeto(dx=-5, dy=0, dz=0)
         )
         btn_esquerda.grid(row=1, column=0, padx=2, pady=2)
         
@@ -429,7 +429,7 @@ class InterfaceModelador:
             width=4,
             height=2,
             font=("Arial", 14),
-            command=lambda: self.mover_objeto(-5, 0, 0)
+            command=lambda: self.mover_objeto(dx=5, dy=0, dz=0)
         )
         btn_direita.grid(row=1, column=2, padx=2, pady=2)
         
@@ -440,7 +440,7 @@ class InterfaceModelador:
             width=4,
             height=2,
             font=("Arial", 14),
-            command=lambda: self.mover_objeto(0, 5, 0)
+            command=lambda: self.mover_objeto(dx=0, dy=-5, dz=0)
         )
         btn_baixo.grid(row=2, column=1, padx=2, pady=2)
 
@@ -474,8 +474,8 @@ class InterfaceModelador:
             self.root,
             self.aplicar_intensidades_luz,
             tipo_inicial=self.tipo_luz,
-            kd_inicial=self.intensidade_luz["kd"],
             ks_inicial=self.intensidade_luz["ks"],
+            kd_inicial=self.intensidade_luz["kd"],
             on_close=self._fechar_janela_luz
         )
 
@@ -512,10 +512,10 @@ class InterfaceModelador:
             ks=self.materiais_cubo["ks"]
         )
         self.cena.adicionar_objeto(cubo)
-        
+        centroide = cubo.centroide
         # Adicionar à lista visual
-        num_cubo = len(self.cena.objetos)
-        self.lista_objetos.insert(tk.END, f"Cubo {num_cubo} - Pos: ({x}, {y}, {z})")
+        num_cubo = len(self.cena.objetos)                  # Pos: ({x}, {y}, {z})")
+        self.lista_objetos.insert(tk.END, f"Cubo {num_cubo} - Pos: ({centroide[0]}, {centroide[1]}, {centroide[2]})")
         
         self.atualizar_cena()
 
@@ -606,7 +606,7 @@ class InterfaceModelador:
                 r = max(0, min(255, r))
                 g = max(0, min(255, g))
                 b = max(0, min(255, b))
-                pixels[x, (altura - 1) - y] = (r, g, b)
+                pixels[x, y] = (r, g, b)
 
         self._imagem_canvas = ImageTk.PhotoImage(img)
         self.canvas.delete("all")

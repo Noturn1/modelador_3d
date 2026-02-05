@@ -541,6 +541,9 @@ class Cena:
         # Luz Ambiente Global (Ilumina todas as faces minimamente)
         self.ia = [0.1, 0.1, 0.1]  # Cinza escuro fraco
 
+        # Modo de shader para renderização
+        self.modo_shader = 2  # 1 = Flat, 2 = Phong
+
         # --- Buffers de Rasterização (Alocação de Memória) ---
         # ColorBuffer: Matriz width x height guardando tuplas (R, G, B)
         # Uma entrada para cada pixel
@@ -1015,7 +1018,7 @@ class Cena:
                             (v_tela[0], v_tela[1], v_tela[2], normal)
                         )
 
-                    modo_shader = 2  # 1 = Flat, 2 = Phong
+                    modo_shader = self.modo_shader  # 1 = Flat, 2 = Phong
                     poligonos_recortados = [vertices_tela_brutos]
                     for poligono in poligonos_recortados:
                         # O recorteWA devolve pontos 2D (x,y). Precisamos trazer o Z para o buffer.
